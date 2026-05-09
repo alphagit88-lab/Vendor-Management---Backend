@@ -1,0 +1,41 @@
+node_modules/
+.env
+*.log
+.DS_Store
+dist/
+build/
+uploads/
+
+# Firebase / Google Cloud secrets
+binrental-firebase-adminsdk-*.json
+# Vercel and local environment files
+.vercel
+.env*.local
+.env.production
+.env.vercel
+.env.production.local
+.env.development.local
+
+# Scripts and database snapshots
+scripts/database/*.js
+*.sql
+!migrations/[0-9]*.sql
+convertSql.js
+fastImport.js
+renameTable.js
+importDb.js
+testDb.js
+neon_inserts.sql
+vendor_db_neon.sql
+
+.vercel
+.env*.local
+
+# SSH Keys
+*.pem
+
+# Test and debug scripts (may contain secrets)
+scripts/testLogin.js
+scripts/resetStaffPassword.js
+scripts/migrateRoles.js
+scripts/seedMigrationHistory.js
