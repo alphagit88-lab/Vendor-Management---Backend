@@ -12,7 +12,7 @@ exports.getItems = async (req, res) => {
 
 exports.createItem = async (req, res) => {
   try {
-    const { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id } = req.body;
+    const { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, group_prices } = req.body;
     
     if (!description_name || !price) {
       return res.status(400).json({ success: false, message: 'Description name and price are required' });
@@ -29,6 +29,15 @@ exports.createItem = async (req, res) => {
       vendor_cost: vendor_cost || 0,
       category_id: category_id || null
     });
+
+    // Handle group prices if provided
+    if (group_prices && Array.isArray(group_prices)) {
+      for (const gp of group_prices) {
+        if (gp.group_id && gp.price) {
+          await Item.setGroupPrice(newItem.id, gp.group_id, gp.price);
+        }
+      }
+    }
 
     res.status(201).json({ success: true, data: newItem });
   } catch (error) {
