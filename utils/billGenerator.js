@@ -175,7 +175,6 @@ const drawBillContent = (doc, data) => {
 
   if (shop.site_name) {
     doc.fontSize(8).text(shop.site_name, 10, doc.y, { align: 'center', width: 184 });
-    doc.moveDown(1);
   }
 
   // Return the final Y position
@@ -203,6 +202,8 @@ const generateBill = async (data) => {
   });
   const finalY = drawBillContent(dummyDoc, data);
   const perfectHeight = Math.ceil(finalY + 15); // Add a tiny 15px buffer for the cut
+
+  console.log(`[PDF] Generated ${fileName} with Height: ${perfectHeight}pt`);
 
   // --- PASS 2: Generate the real PDF with the exact height ---
   const doc = new PDFDocument({
