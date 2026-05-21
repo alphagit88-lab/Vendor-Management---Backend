@@ -31,6 +31,14 @@ exports.getOrder = async (req, res) => {
       console.warn(`⚠️ ORDER NOT FOUND: ${id}`);
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
+
+    if (req.user.role === 'staff' && order.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    if (req.user.role === 'admin' && order.user_id !== req.user.id && order.salesperson_admin_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
     console.log(`✅ ORDER RETRIEVED: ${id}`);
     res.json({ success: true, data: order });
   } catch (error) {
@@ -145,10 +153,20 @@ exports.updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const updatedOrder = await Order.updateStatus(id, status);
-    if (!updatedOrder) {
+    
+    const order = await Order.findById(id);
+    if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
+
+    if (req.user.role === 'staff' && order.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    if (req.user.role === 'admin' && order.user_id !== req.user.id && order.salesperson_admin_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const updatedOrder = await Order.updateStatus(id, status);
     res.json({ success: true, data: updatedOrder });
   } catch (error) {
     console.error(error);
@@ -166,6 +184,13 @@ exports.getOrderChecklist = async (req, res) => {
 
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    if (req.user.role === 'staff' && order.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    if (req.user.role === 'admin' && order.user_id !== req.user.id && order.salesperson_admin_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
     const { generateBill } = require('../utils/billGenerator');
     const { customerSignature, driverSignature, clientTimestamp, client_timestamp } = req.body || {};
@@ -203,10 +228,19 @@ exports.getOrderChecklist = async (req, res) => {
 exports.deleteOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await Order.delete(id);
-    if (!deleted) {
+    const order = await Order.findById(id);
+    if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
+
+    if (req.user.role === 'staff' && order.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    if (req.user.role === 'admin' && order.user_id !== req.user.id && order.salesperson_admin_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    await Order.delete(id);
     res.json({ success: true, message: 'Order deleted successfully' });
   } catch (error) {
     console.error(error);
