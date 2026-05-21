@@ -1,13 +1,13 @@
 const pool = require('../config/database');
 
 class Item {
-  static async create({ description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id }) {
+  static async create({ description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, admin_id }) {
     const query = `
-      INSERT INTO items (description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      INSERT INTO items (description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, admin_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
       RETURNING *
     `;
-    const values = [description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id || null];
+    const values = [description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id || null, admin_id || null];
     const result = await pool.query(query, values);
     return result.rows[0];
   }
@@ -18,14 +18,19 @@ class Item {
     return result.rows[0];
   }
 
-  static async findAll() {
-    const query = `
+  static async findAll(adminId = null) {
+    let query = `
       SELECT i.*, c.name as category_name
       FROM items i
       LEFT JOIN categories c ON i.category_id = c.id
-      ORDER BY i.created_at DESC
     `;
-    const result = await pool.query(query);
+    const values = [];
+    if (adminId) {
+      query += ` WHERE i.admin_id = $1`;
+      values.push(adminId);
+    }
+    query += ` ORDER BY i.created_at DESC`;
+    const result = await pool.query(query, values);
     return result.rows;
   }
 

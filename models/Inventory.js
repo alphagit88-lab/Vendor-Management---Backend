@@ -4,7 +4,7 @@ class Inventory {
   /**
    * Returns overall inventory status by merging warehouse and salespeople quantities.
    */
-  static async findAll(customerId = null) {
+  static async findAll(customerId = null, adminId = null) {
     const query = `
       SELECT 
         i.id,
@@ -15,8 +15,8 @@ class Inventory {
         CASE WHEN cip_cust.price IS NOT NULL OR cip_group.price IS NOT NULL THEN true ELSE false END as is_custom_price,
         c.name as category_name,
         COALESCE(inv.quantity, 0) as warehouse_quantity,
-        (SELECT COALESCE(SUM(quantity), 0) FROM salesperson_inventory WHERE item_id = i.id) as salesperson_quantity,
-        (COALESCE(inv.quantity, 0) + (SELECT COALESCE(SUM(quantity), 0) FROM salesperson_inventory WHERE item_id = i.id)) as total_quantity,
+        (SELECT COALESCE(SUM(si.quantity), 0) FROM salesperson_inventory si JOIN users u ON si.user_id = u.id WHERE si.item_id = i.id AND ($2::integer IS NULL OR u.admin_id = $2::integer)) as salesperson_quantity,
+        (COALESCE(inv.quantity, 0) + (SELECT COALESCE(SUM(si.quantity), 0) FROM salesperson_inventory si JOIN users u ON si.user_id = u.id WHERE si.item_id = i.id AND ($2::integer IS NULL OR u.admin_id = $2::integer))) as total_quantity,
         COALESCE(inv.reorder_level, 10) as reorder_level,
         COALESCE((
           SELECT json_agg(json_build_object(
@@ -27,7 +27,7 @@ class Inventory {
           ))
           FROM salesperson_inventory si
           JOIN users u ON si.user_id = u.id
-          WHERE si.item_id = i.id
+          WHERE si.item_id = i.id AND ($2::integer IS NULL OR u.admin_id = $2::integer)
         ), '[]'::json) as sub_inventories
       FROM items i
       LEFT JOIN inventory inv ON i.id = inv.item_id
@@ -35,9 +35,10 @@ class Inventory {
       LEFT JOIN customers cust ON cust.id = $1
       LEFT JOIN customer_item_prices cip_cust ON i.id = cip_cust.item_id AND cip_cust.customer_id = $1
       LEFT JOIN customer_item_prices cip_group ON i.id = cip_group.item_id AND cip_group.group_id = cust.group_id
+      WHERE ($2::integer IS NULL OR i.admin_id = $2::integer)
       ORDER BY i.description_name ASC
     `;
-    const result = await pool.query(query, [customerId]);
+    const result = await pool.query(query, [customerId, adminId]);
     return result.rows;
   }
 
@@ -177,7 +178,7 @@ class Inventory {
     }
   }
 
-  static async getLogs(item_id = null, salesperson_id = null) {
+  static async getLogs(item_id = null, salesperson_id = null, adminId = null) {
     let query = `
       SELECT 
         l.*, 
@@ -197,6 +198,11 @@ class Inventory {
     if (salesperson_id) {
       params.push(salesperson_id);
       conditions.push(`(l.salesperson_id = $${params.length} OR l.user_id = $${params.length})`);
+    }
+
+    if (adminId) {
+      params.push(adminId);
+      conditions.push(`(i.admin_id = $${params.length} OR l.salesperson_id IN (SELECT id FROM users WHERE admin_id = $${params.length}) OR l.user_id IN (SELECT id FROM users WHERE admin_id = $${params.length}))`);
     }
 
     if (conditions.length > 0) {

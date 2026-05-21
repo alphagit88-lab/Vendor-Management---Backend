@@ -1,8 +1,10 @@
 const Setting = require('../models/Setting');
+const { getAdminId } = require('../utils/adminHelper');
 
 exports.getSettings = async (req, res) => {
   try {
-    const settings = await Setting.getAll();
+    const adminId = await getAdminId(req);
+    const settings = await Setting.getAll(adminId);
     res.json({ success: true, data: settings });
   } catch (error) {
     console.error(error);
@@ -12,11 +14,12 @@ exports.getSettings = async (req, res) => {
 
 exports.updateSettings = async (req, res) => {
   try {
+    const adminId = await getAdminId(req);
     const settings = req.body;
     for (const [key, value] of Object.entries(settings)) {
-      await Setting.update(key, value);
+      await Setting.update(key, value, adminId);
     }
-    const updatedSettings = await Setting.getAll();
+    const updatedSettings = await Setting.getAll(adminId);
     res.json({ success: true, data: updatedSettings });
   } catch (error) {
     console.error(error);

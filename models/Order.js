@@ -103,7 +103,7 @@ class Order {
     return result.rows[0];
   }
 
-  static async findAll(userId = null, month = null, year = null) {
+  static async findAll(userId = null, month = null, year = null, adminId = null) {
     let query = `
       SELECT o.*, c.name as customer_name, u.name as user_name,
       COALESCE((
@@ -131,6 +131,10 @@ class Order {
     if (userId) {
       query += ` AND o.user_id = $${paramIndex++}`;
       values.push(userId);
+    } else if (adminId) {
+      query += ` AND (o.user_id = $${paramIndex} OR o.user_id IN (SELECT id FROM users WHERE admin_id = $${paramIndex}))`;
+      paramIndex++;
+      values.push(adminId);
     }
 
     if (month && year) {

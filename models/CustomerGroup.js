@@ -1,13 +1,13 @@
 const pool = require('../config/database');
 
 class CustomerGroup {
-  static async create({ name, description }) {
+  static async create({ name, description, admin_id }) {
     const query = `
-      INSERT INTO customer_groups (name, description, created_at, updated_at)
-      VALUES ($1, $2, NOW(), NOW())
+      INSERT INTO customer_groups (name, description, admin_id, created_at, updated_at)
+      VALUES ($1, $2, $3, NOW(), NOW())
       RETURNING *
     `;
-    const result = await pool.query(query, [name, description]);
+    const result = await pool.query(query, [name, description, admin_id || null]);
     return result.rows[0];
   }
 
@@ -17,14 +17,19 @@ class CustomerGroup {
     return result.rows[0];
   }
 
-  static async findAll() {
-    const query = `
+  static async findAll(adminId = null) {
+    let query = `
       SELECT cg.*, 
         (SELECT COUNT(*) FROM customers WHERE group_id = cg.id) as customer_count
       FROM customer_groups cg 
-      ORDER BY cg.name ASC
     `;
-    const result = await pool.query(query);
+    const values = [];
+    if (adminId) {
+      query += ` WHERE cg.admin_id = $1`;
+      values.push(adminId);
+    }
+    query += ` ORDER BY cg.name ASC`;
+    const result = await pool.query(query, values);
     return result.rows;
   }
 
