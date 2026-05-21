@@ -1,19 +1,25 @@
 const pool = require('../config/database');
 
 class Category {
-  static async create({ name, description }) {
+  static async create({ name, description, admin_id }) {
     const query = `
-      INSERT INTO categories (name, description, created_at)
-      VALUES ($1, $2, NOW())
+      INSERT INTO categories (name, description, admin_id, created_at)
+      VALUES ($1, $2, $3, NOW())
       RETURNING *
     `;
-    const result = await pool.query(query, [name, description]);
+    const result = await pool.query(query, [name, description, admin_id || null]);
     return result.rows[0];
   }
 
-  static async findAll() {
-    const query = `SELECT * FROM categories ORDER BY name ASC`;
-    const result = await pool.query(query);
+  static async findAll(adminId = null) {
+    let query = `SELECT * FROM categories`;
+    const values = [];
+    if (adminId) {
+      query += ` WHERE admin_id = $1`;
+      values.push(adminId);
+    }
+    query += ` ORDER BY name ASC`;
+    const result = await pool.query(query, values);
     return result.rows;
   }
 

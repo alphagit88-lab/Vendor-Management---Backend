@@ -1,11 +1,20 @@
 const Order = require('../models/Order');
 const Setting = require('../models/Setting');
+const { getAdminId } = require('../utils/adminHelper');
 
 exports.getOrders = async (req, res) => {
   try {
     const { month, year } = req.query;
-    const userId = req.user.role === 'admin' ? null : req.user.id;
-    const orders = await Order.findAll(userId, month, year);
+    let userId = null;
+    let adminId = null;
+
+    if (req.user.role === 'staff') {
+      userId = req.user.id;
+    } else if (req.user.role === 'admin') {
+      adminId = req.user.id;
+    }
+
+    const orders = await Order.findAll(userId, month, year, adminId);
     res.json({ success: true, data: orders });
   } catch (error) {
     console.error(error);
@@ -83,7 +92,8 @@ exports.createOrder = async (req, res) => {
       
       // Fetch full order with customer details for the bill
       const fullOrder = await Order.findById(newOrder.id);
-      const settings = await Setting.getAll();
+      const orderAdminId = await getAdminId(req);
+      const settings = await Setting.getAll(orderAdminId);
       
       const fileName = await generateBill({
         order: fullOrder,
@@ -159,7 +169,8 @@ exports.getOrderChecklist = async (req, res) => {
 
     const { generateBill } = require('../utils/billGenerator');
     const { customerSignature, driverSignature, clientTimestamp, client_timestamp } = req.body || {};
-    const settings = await Setting.getAll();
+    const checklistAdminId = await getAdminId(req);
+    const settings = await Setting.getAll(checklistAdminId);
     
     const fileName = await generateBill({
       order: order,

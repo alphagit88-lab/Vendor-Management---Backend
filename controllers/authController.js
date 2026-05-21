@@ -17,7 +17,7 @@ exports.login = async (req, res) => {
     if (!user && phone) user = await User.findByPhone(phone);
     if (!user && !email && !username && !phone) return res.status(400).json({ success: false, message: 'Missing login credentials' });
 
-    if (!user || (user.role !== 'admin' && user.role !== 'staff')) {
+    if (!user || (user.role !== 'admin' && user.role !== 'staff' && user.role !== 'super_admin')) {
       return res.status(401).json({ success: false, message: 'Invalid credentials or you are not a staff member' });
     }
 
@@ -27,7 +27,7 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, role: user.role, name: user.name },
+      { id: user.id, role: user.role, name: user.name, admin_id: user.admin_id },
       jwtConfig.secret,
       { expiresIn: jwtConfig.expiresIn }
     );
