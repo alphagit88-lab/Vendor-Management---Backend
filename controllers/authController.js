@@ -18,7 +18,7 @@ exports.login = async (req, res) => {
     if (!user && !email && !username && !phone) return res.status(400).json({ success: false, message: 'Missing login credentials' });
 
     if (!user || (user.role !== 'admin' && user.role !== 'staff' && user.role !== 'super_admin')) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials or you are not a staff member' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     const isMatch = await User.verifyPassword(user, password);

@@ -80,6 +80,7 @@ class Order {
              c.phone as customer_phone, 
              c.tobacco_permit_number,
              u.name as user_name,
+             u.admin_id as salesperson_admin_id,
       COALESCE((
         SELECT json_agg(json_build_object(
           'id', oi.id,
