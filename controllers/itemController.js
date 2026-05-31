@@ -2,6 +2,7 @@ const Item = require('../models/Item');
 const Category = require('../models/Category');
 const CustomerGroup = require('../models/CustomerGroup');
 const Customer = require('../models/Customer');
+const User = require('../models/User');
 const { getAdminId } = require('../utils/adminHelper');
 const pool = require('../config/database');
 
@@ -25,6 +26,20 @@ exports.createItem = async (req, res) => {
     }
 
     const adminId = await getAdminId(req);
+    
+    // Check subscription limit for product creation (only for regular admins)
+    if (req.user.role !== 'super_admin') {
+      const subscriptionPlan = await User.getSubscriptionPlan(req.user.id);
+      if (subscriptionPlan) {
+        const currentProductCount = await User.getProductCount(req.user.id);
+        if (currentProductCount >= subscriptionPlan.product_limit) {
+          return res.status(403).json({ 
+            success: false, 
+            message: `Product limit reached. Your plan allows ${subscriptionPlan.product_limit} products.` 
+          });
+        }
+      }
+    }
 
     if (category_id) {
       const category = await Category.findById(category_id);

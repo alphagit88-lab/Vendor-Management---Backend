@@ -17,12 +17,8 @@ class Customer {
     
     // Updated INSERT to customers table
     const query = `
-<<<<<<< Updated upstream
-      INSERT INTO customers (name, address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id, admin_id, created_at, updated_at)
-=======
-      INSERT INTO customers (name, address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id, par_levels, created_at, updated_at)
->>>>>>> Stashed changes
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
+      INSERT INTO customers (name, address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id, admin_id, par_levels, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
       RETURNING *
     `;
     // Sanitize values: convert empty strings to null for database compatibility

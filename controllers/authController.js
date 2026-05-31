@@ -27,7 +27,7 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, role: user.role, name: user.name, admin_id: user.admin_id },
+      { id: user.id, role: user.role, name: user.name, admin_id: user.admin_id, enable_par_levels: user.enable_par_levels },
       jwtConfig.secret,
       { expiresIn: jwtConfig.expiresIn }
     );
@@ -40,7 +40,8 @@ exports.login = async (req, res) => {
         name: user.name,
         phone: user.phone,
         email: user.email,
-        role: user.role
+        role: user.role,
+        enable_par_levels: user.enable_par_levels
       }
     });
 

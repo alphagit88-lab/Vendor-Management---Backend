@@ -1,4 +1,36 @@
 const User = require('../models/User');
+const SubscriptionPlan = require('../models/SubscriptionPlan');
+
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Include subscription plan details and counts for admin users
+    if (user.role === 'admin') {
+      const subscriptionPlan = await User.getSubscriptionPlan(user.id);
+      const productCount = await User.getProductCount(user.id);
+      const salesPersonCount = await User.getSalesPersonCount(user.id);
+      
+      res.json({ 
+        success: true, 
+        data: {
+          ...user,
+          subscription_plan: subscriptionPlan,
+          current_product_count: productCount,
+          current_sales_person_count: salesPersonCount
+        } 
+      });
+    } else {
+      res.json({ success: true, data: user });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
 
 exports.getUsers = async (req, res) => {
   try {
@@ -21,10 +53,24 @@ exports.createUser = async (req, res) => {
   try {
     console.log('--- createUser called ---');
     console.log('req.body:', req.body);
-    const { name, phone, username, email, password, role, inventory_location, admin_id } = req.body;
+    const { name, phone, username, email, password, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id } = req.body;
     
     if (role === 'super_admin' && req.user.role !== 'super_admin') {
       return res.status(403).json({ success: false, message: 'Access denied: cannot create super admin' });
+    }
+
+    // Check subscription limit for sales person creation (only for regular admins creating staff)
+    if (req.user.role !== 'super_admin' && role === 'staff') {
+      const subscriptionPlan = await User.getSubscriptionPlan(req.user.id);
+      if (subscriptionPlan) {
+        const currentSalesPersonCount = await User.getSalesPersonCount(req.user.id);
+        if (currentSalesPersonCount >= subscriptionPlan.sales_person_limit) {
+          return res.status(403).json({ 
+            success: false, 
+            message: `Sales person limit reached. Your plan allows ${subscriptionPlan.sales_person_limit} sales persons.` 
+          });
+        }
+      }
     }
 
     if (phone) {
@@ -69,7 +115,9 @@ exports.createUser = async (req, res) => {
       role: finalRole,
       password,
       inventory_location: finalRole === 'admin' ? null : inventory_location,
-      admin_id: targetAdminId
+      admin_id: targetAdminId,
+      enable_par_levels,
+      subscription_plan_id: req.user.role === 'super_admin' ? subscription_plan_id : null
     });
 
     res.status(201).json({ success: true, data: newUser });
@@ -82,7 +130,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, username, email, role, inventory_location, password, admin_id } = req.body;
+    const { name, username, email, role, inventory_location, password, admin_id, enable_par_levels, subscription_plan_id } = req.body;
 
     const targetUser = await User.findById(id);
     if (!targetUser) {
@@ -139,7 +187,9 @@ exports.updateUser = async (req, res) => {
       email, 
       role: finalRole, 
       inventory_location: finalRole === 'admin' ? null : inventory_location,
-      admin_id: targetAdminId
+      admin_id: targetAdminId,
+      enable_par_levels,
+      subscription_plan_id: req.user.role === 'super_admin' ? subscription_plan_id : targetUser.subscription_plan_id
     });
     res.json({ success: true, data: updatedUser });
   } catch (error) {
