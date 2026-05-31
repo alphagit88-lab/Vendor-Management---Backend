@@ -14,6 +14,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const settingRoutes = require('./routes/settingRoutes');
+const warehouseRoutes = require('./routes/warehouseRoutes');
 
 const app = express();
 app.set('trust proxy', true);
@@ -76,6 +77,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/settings', settingRoutes);
+app.use('/api/warehouses', warehouseRoutes);
 
 // 404 error handler
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
@@ -88,10 +90,8 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Backend server running on http://localhost:${PORT}`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+});
 
 module.exports = app;

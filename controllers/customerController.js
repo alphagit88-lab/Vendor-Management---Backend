@@ -14,7 +14,7 @@ exports.getCustomers = async (req, res) => {
 
 exports.createCustomer = async (req, res) => {
   try {
-    const { address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id } = req.body;
+    const { address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id, par_levels } = req.body;
     
     if (!address) {
       return res.status(400).json({ success: false, message: 'Address is required' });
@@ -38,7 +38,8 @@ exports.createCustomer = async (req, res) => {
       latitude,
       longitude,
       group_id,
-      admin_id: adminId
+      admin_id: adminId,
+      par_levels
     });
 
     res.status(201).json({ success: true, data: newCustomer });
@@ -61,8 +62,8 @@ exports.updateCustomer = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const { address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id } = req.body;
-    const updatedCustomer = await Customer.update(id, { address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id });
+    const { address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id, par_levels } = req.body;
+    const updatedCustomer = await Customer.update(id, { address, phone, account_id, permit_numbers, registered_company_name, dba, email, sales_tax_id, has_cigarette_permit, tobacco_permit_number, tobacco_expire_date, payment_type, latitude, longitude, group_id, par_levels });
     
     res.json({ success: true, data: updatedCustomer });
   } catch (error) {

@@ -3,6 +3,7 @@ const Category = require('../models/Category');
 const CustomerGroup = require('../models/CustomerGroup');
 const Customer = require('../models/Customer');
 const { getAdminId } = require('../utils/adminHelper');
+const pool = require('../config/database');
 
 exports.getItems = async (req, res) => {
   try {
@@ -47,6 +48,18 @@ exports.createItem = async (req, res) => {
       category_id: category_id || null,
       admin_id: adminId
     });
+
+    // Seed inventory with 0 for the first/default warehouse
+    const firstWarehouseRes = await pool.query('SELECT id FROM warehouses LIMIT 1');
+    if (firstWarehouseRes.rowCount > 0) {
+      const warehouseId = firstWarehouseRes.rows[0].id;
+      await pool.query(
+        'INSERT INTO inventory (item_id, warehouse_id, quantity, updated_at) VALUES ($1, $2, 0, NOW()) ON CONFLICT DO NOTHING',
+        [newItem.id, warehouseId]
+      );
+    } else {
+      return res.status(400).json({ success: false, message: 'Cannot create item: No warehouses exist. Create a warehouse first.' });
+    }
 
     // Handle group prices if provided
     if (group_prices && Array.isArray(group_prices)) {
