@@ -3,14 +3,14 @@ const bcrypt = require('bcryptjs');
 const SubscriptionPlan = require('./SubscriptionPlan');
 
 class User {
-  static async create({ name, phone, username, email, role, password, inventory_location, admin_id, enable_par_levels, subscription_plan_id }) {
+  static async create({ name, phone, username, email, role, password, inventory_location, admin_id, enable_par_levels, subscription_plan_id, is_active }) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const query = `
-      INSERT INTO users (name, phone, username, email, role, password_hash, inventory_location, admin_id, enable_par_levels, subscription_plan_id, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-      RETURNING id, name, phone, username, email, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id, created_at, updated_at
+      INSERT INTO users (name, phone, username, email, role, password_hash, inventory_location, admin_id, enable_par_levels, subscription_plan_id, is_active, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+      RETURNING id, name, phone, username, email, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id, is_active, created_at, updated_at
     `;
-    const values = [name, phone, username || null, email || null, role, hashedPassword, inventory_location || null, admin_id || null, enable_par_levels !== undefined ? enable_par_levels : true, subscription_plan_id || null];
+    const values = [name, phone, username || null, email || null, role, hashedPassword, inventory_location || null, admin_id || null, enable_par_levels !== undefined ? enable_par_levels : true, subscription_plan_id || null, is_active !== undefined ? is_active : true];
     const result = await pool.query(query, values);
     return result.rows[0];
   }
@@ -28,6 +28,7 @@ class User {
         u.admin_id,
         u.enable_par_levels,
         u.subscription_plan_id,
+        u.is_active,
         p.name as admin_name,
         u.password_hash,
         u.created_at,
@@ -53,6 +54,7 @@ class User {
         u.admin_id,
         u.enable_par_levels,
         u.subscription_plan_id,
+        u.is_active,
         p.name as admin_name,
         u.password_hash,
         u.created_at,
@@ -78,6 +80,7 @@ class User {
         u.admin_id,
         u.enable_par_levels,
         u.subscription_plan_id,
+        u.is_active,
         p.name as admin_name,
         u.password_hash,
         u.created_at,
@@ -103,6 +106,7 @@ class User {
         u.admin_id,
         u.enable_par_levels,
         u.subscription_plan_id,
+        u.is_active,
         p.name as admin_name,
         u.created_at, 
         u.updated_at 
@@ -127,6 +131,7 @@ class User {
         u.admin_id,
         u.enable_par_levels,
         u.subscription_plan_id,
+        u.is_active,
         p.name as admin_name,
         u.created_at, 
         u.updated_at 
@@ -138,7 +143,7 @@ class User {
     return result.rows;
   }
 
-  static async update(id, { name, username, email, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id }) {
+  static async update(id, { name, username, email, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id, is_active, password }) {
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -175,6 +180,15 @@ class User {
       updates.push(`subscription_plan_id = $${paramCount++}`);
       values.push(subscription_plan_id);
     }
+    if (is_active !== undefined) {
+      updates.push(`is_active = $${paramCount++}`);
+      values.push(is_active);
+    }
+    if (password !== undefined) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updates.push(`password_hash = $${paramCount++}`);
+      values.push(hashedPassword);
+    }
 
     if (updates.length === 0) {
       return await this.findById(id);
@@ -187,7 +201,7 @@ class User {
       UPDATE users 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, phone, username, email, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id, created_at, updated_at
+      RETURNING id, name, phone, username, email, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id, is_active, created_at, updated_at
     `;
     const result = await pool.query(query, values);
     return result.rows[0];

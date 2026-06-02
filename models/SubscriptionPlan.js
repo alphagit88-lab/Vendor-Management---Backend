@@ -1,20 +1,20 @@
 const pool = require('../config/database');
 
 class SubscriptionPlan {
-  static async create({ name, product_limit, sales_person_limit }) {
+  static async create({ name, product_limit, sales_person_limit, price }) {
     const query = `
-      INSERT INTO subscription_plans (name, product_limit, sales_person_limit, created_at, updated_at)
-      VALUES ($1, $2, $3, NOW(), NOW())
-      RETURNING id, name, product_limit, sales_person_limit, created_at, updated_at
+      INSERT INTO subscription_plans (name, product_limit, sales_person_limit, price, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      RETURNING id, name, product_limit, sales_person_limit, price, created_at, updated_at
     `;
-    const values = [name, product_limit, sales_person_limit];
+    const values = [name, product_limit, sales_person_limit, price || 0.00];
     const result = await pool.query(query, values);
     return result.rows[0];
   }
 
   static async findAll() {
     const query = `
-      SELECT id, name, product_limit, sales_person_limit, created_at, updated_at
+      SELECT id, name, product_limit, sales_person_limit, price, created_at, updated_at
       FROM subscription_plans
       ORDER BY created_at DESC
     `;
@@ -24,7 +24,7 @@ class SubscriptionPlan {
 
   static async findById(id) {
     const query = `
-      SELECT id, name, product_limit, sales_person_limit, created_at, updated_at
+      SELECT id, name, product_limit, sales_person_limit, price, created_at, updated_at
       FROM subscription_plans
       WHERE id = $1
     `;
@@ -32,7 +32,7 @@ class SubscriptionPlan {
     return result.rows[0];
   }
 
-  static async update(id, { name, product_limit, sales_person_limit }) {
+  static async update(id, { name, product_limit, sales_person_limit, price }) {
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -49,6 +49,10 @@ class SubscriptionPlan {
       updates.push(`sales_person_limit = $${paramCount++}`);
       values.push(sales_person_limit);
     }
+    if (price !== undefined) {
+      updates.push(`price = $${paramCount++}`);
+      values.push(price);
+    }
 
     if (updates.length === 0) {
       return await this.findById(id);
@@ -61,7 +65,7 @@ class SubscriptionPlan {
       UPDATE subscription_plans
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, product_limit, sales_person_limit, created_at, updated_at
+      RETURNING id, name, product_limit, sales_person_limit, price, created_at, updated_at
     `;
     const result = await pool.query(query, values);
     return result.rows[0];

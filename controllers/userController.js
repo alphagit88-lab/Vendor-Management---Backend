@@ -53,7 +53,7 @@ exports.createUser = async (req, res) => {
   try {
     console.log('--- createUser called ---');
     console.log('req.body:', req.body);
-    const { name, phone, username, email, password, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id } = req.body;
+    const { name, phone, username, email, password, role, inventory_location, admin_id, enable_par_levels, subscription_plan_id, is_active } = req.body;
     
     if (role === 'super_admin' && req.user.role !== 'super_admin') {
       return res.status(403).json({ success: false, message: 'Access denied: cannot create super admin' });
@@ -117,7 +117,8 @@ exports.createUser = async (req, res) => {
       inventory_location: finalRole === 'admin' ? null : inventory_location,
       admin_id: targetAdminId,
       enable_par_levels,
-      subscription_plan_id: req.user.role === 'super_admin' ? subscription_plan_id : null
+      subscription_plan_id: req.user.role === 'super_admin' ? subscription_plan_id : null,
+      is_active
     });
 
     res.status(201).json({ success: true, data: newUser });
@@ -130,7 +131,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, username, email, role, inventory_location, password, admin_id, enable_par_levels, subscription_plan_id } = req.body;
+    const { name, username, email, role, inventory_location, password, admin_id, enable_par_levels, subscription_plan_id, is_active } = req.body;
 
     const targetUser = await User.findById(id);
     if (!targetUser) {
@@ -167,11 +168,6 @@ exports.updateUser = async (req, res) => {
         }
     }
 
-    if (password) {
-        const hashedPassword = await User.hashPassword(password);
-        await User.updatePassword(id, hashedPassword);
-    }
-
     // Determine target admin_id based on role and creator
     let targetAdminId = targetUser.admin_id;
     if (req.user.role === 'admin') {
@@ -189,7 +185,9 @@ exports.updateUser = async (req, res) => {
       inventory_location: finalRole === 'admin' ? null : inventory_location,
       admin_id: targetAdminId,
       enable_par_levels,
-      subscription_plan_id: req.user.role === 'super_admin' ? subscription_plan_id : targetUser.subscription_plan_id
+      subscription_plan_id: req.user.role === 'super_admin' ? subscription_plan_id : targetUser.subscription_plan_id,
+      is_active: req.user.role === 'super_admin' ? is_active : targetUser.is_active,
+      password
     });
     res.json({ success: true, data: updatedUser });
   } catch (error) {
