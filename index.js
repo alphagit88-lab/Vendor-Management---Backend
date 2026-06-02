@@ -16,6 +16,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const settingRoutes = require('./routes/settingRoutes');
 const warehouseRoutes = require('./routes/warehouseRoutes');
 const subscriptionPlanRoutes = require('./routes/subscriptionPlanRoutes');
+const returnRoutes = require('./routes/returnRoutes');
 
 const app = express();
 app.set('trust proxy', true);
@@ -80,6 +81,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
+app.use('/api/returns', returnRoutes);
 
 // 404 error handler
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
