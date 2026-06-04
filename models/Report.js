@@ -53,7 +53,45 @@ class Report {
     return result.rows;
   }
 
-  static async getCombinedReport(adminId = null, customerName = null, startDate = null, endDate = null) {
+  static async getCombinedReport(adminId = null, customerName = null, itemId = null, startDate = null, endDate = null) {
+    // Build the orders part
+    let ordersJoin = '';
+    let ordersExtraWhere = '';
+    let returnsExtraWhere = '';
+    let paramCount = 2; // adminId is $1
+
+    const values = [adminId];
+
+    if (itemId) {
+      ordersJoin = 'JOIN order_items oi ON o.id = oi.order_id';
+      ordersExtraWhere = `AND oi.item_id = $${paramCount}`;
+      returnsExtraWhere = `AND r.item_id = $${paramCount}`;
+      values.push(parseInt(itemId));
+      paramCount++;
+    }
+
+    let whereParts = [];
+
+    if (customerName) {
+      whereParts.push(`customer_name ILIKE $${paramCount} || '%'`);
+      values.push(customerName);
+      paramCount++;
+    }
+
+    if (startDate) {
+      whereParts.push(`created_at >= $${paramCount}`);
+      values.push(startDate);
+      paramCount++;
+    }
+
+    if (endDate) {
+      whereParts.push(`created_at <= $${paramCount}`);
+      values.push(endDate);
+      paramCount++;
+    }
+
+    const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : 'WHERE 1=1';
+
     const query = `
       WITH combined_data AS (
         SELECT 
@@ -71,7 +109,9 @@ class Report {
         FROM orders o
         JOIN customers c ON o.customer_id = c.id
         LEFT JOIN users u ON o.user_id = u.id
+        ${ordersJoin}
         WHERE ($1::integer IS NULL OR o.user_id = $1::integer OR o.user_id IN (SELECT id FROM users WHERE admin_id = $1::integer))
+        ${ordersExtraWhere}
         
         UNION ALL
         
@@ -92,19 +132,12 @@ class Report {
         JOIN customers c ON r.customer_id = c.id
         LEFT JOIN users u ON r.user_id = u.id
         WHERE ($1::integer IS NULL OR r.user_id = $1::integer OR r.admin_id = $1::integer)
+        ${returnsExtraWhere}
       )
-      SELECT * FROM combined_data
-      WHERE 1=1
-      ${customerName ? 'AND customer_name ILIKE $2 || \'%\'' : ''}
-      ${startDate ? `AND created_at >= $${customerName ? '3' : '2'}` : ''}
-      ${endDate ? `AND created_at <= $${customerName && startDate ? '4' : (customerName || startDate) ? '3' : '2'}` : ''}
+      SELECT DISTINCT * FROM combined_data
+      ${whereClause}
       ORDER BY created_at DESC
     `;
-
-    const values = [adminId];
-    if (customerName) values.push(customerName);
-    if (startDate) values.push(startDate);
-    if (endDate) values.push(endDate);
 
     const result = await pool.query(query, values);
     return result.rows;

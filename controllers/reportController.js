@@ -37,11 +37,12 @@ exports.getInventoryAlerts = async (req, res) => {
 exports.getCombinedReport = async (req, res) => {
   try {
     const adminId = await getAdminId(req);
-    const { customerName, startDate, endDate } = req.query;
+    const { customerName, itemId, startDate, endDate } = req.query;
 
     const data = await Report.getCombinedReport(
       adminId,
       customerName || null,
+      itemId || null,
       startDate || null,
       endDate || null
     );
