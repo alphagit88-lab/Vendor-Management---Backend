@@ -1,22 +1,22 @@
 const pool = require('../config/database');
 
 class SubscriptionPlan {
-  static async create({ name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, has_category_management }) {
+  static async create({ name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, is_popular, order }) {
     const query = `
-      INSERT INTO subscription_plans (name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, has_category_management, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-      RETURNING id, name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, has_category_management, created_at, updated_at
+      INSERT INTO subscription_plans (name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, is_popular, "order", created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING id, name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, is_popular, "order", created_at, updated_at
     `;
-    const values = [name, product_limit || 0, sales_person_limit || 0, price || 0.00, description || null, customer_limit || 0, van_limit || 0, warehouse_limit || 0, has_category_management || false];
+    const values = [name, product_limit || 0, sales_person_limit || 0, price || 0.00, description || null, customer_limit || 0, van_limit || 0, warehouse_limit || 0, is_popular || false, order || 0];
     const result = await pool.query(query, values);
     return result.rows[0];
   }
 
   static async findAll() {
     const query = `
-      SELECT id, name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, has_category_management, created_at, updated_at
+      SELECT id, name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, is_popular, "order", created_at, updated_at
       FROM subscription_plans
-      ORDER BY created_at DESC
+      ORDER BY "order" ASC, created_at DESC
     `;
     const result = await pool.query(query);
     return result.rows;
@@ -24,7 +24,7 @@ class SubscriptionPlan {
 
   static async findById(id) {
     const query = `
-      SELECT id, name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, has_category_management, created_at, updated_at
+      SELECT id, name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, is_popular, "order", created_at, updated_at
       FROM subscription_plans
       WHERE id = $1
     `;
@@ -32,7 +32,7 @@ class SubscriptionPlan {
     return result.rows[0];
   }
 
-  static async update(id, { name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, has_category_management }) {
+  static async update(id, { name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, is_popular, order }) {
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -69,9 +69,13 @@ class SubscriptionPlan {
       updates.push(`warehouse_limit = $${paramCount++}`);
       values.push(warehouse_limit);
     }
-    if (has_category_management !== undefined) {
-      updates.push(`has_category_management = $${paramCount++}`);
-      values.push(has_category_management);
+    if (is_popular !== undefined) {
+      updates.push(`is_popular = $${paramCount++}`);
+      values.push(is_popular);
+    }
+    if (order !== undefined) {
+      updates.push(`"order" = $${paramCount++}`);
+      values.push(order);
     }
 
     if (updates.length === 0) {
@@ -85,7 +89,7 @@ class SubscriptionPlan {
       UPDATE subscription_plans
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, has_category_management, created_at, updated_at
+      RETURNING id, name, product_limit, sales_person_limit, price, description, customer_limit, van_limit, warehouse_limit, has_category_management, is_popular, "order", created_at, updated_at
     `;
     const result = await pool.query(query, values);
     return result.rows[0];
