@@ -17,6 +17,10 @@ const settingRoutes = require('./routes/settingRoutes');
 const warehouseRoutes = require('./routes/warehouseRoutes');
 const subscriptionPlanRoutes = require('./routes/subscriptionPlanRoutes');
 const returnRoutes = require('./routes/returnRoutes');
+const hardwareProductRoutes = require('./routes/hardwareProductRoutes');
+const shopRoutes = require('./routes/shopRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const stripeWebhookController = require('./controllers/stripeWebhookController');
 
 const app = express();
 app.set('trust proxy', true);
@@ -35,6 +39,13 @@ app.use(cors({
 }));
 
 // CORS handled by middleware above
+
+const stripeWebhookMiddleware = [
+  express.raw({ type: 'application/json' }),
+  stripeWebhookController.handleStripeWebhook,
+];
+app.post('/api/stripe/webhook', ...stripeWebhookMiddleware);
+app.post('/api/shop/webhook', ...stripeWebhookMiddleware);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -82,6 +93,9 @@ app.use('/api/settings', settingRoutes);
 app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
 app.use('/api/returns', returnRoutes);
+app.use('/api/hardware-products', hardwareProductRoutes);
+app.use('/api/shop', shopRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 // 404 error handler
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
