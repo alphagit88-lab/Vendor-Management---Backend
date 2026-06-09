@@ -15,6 +15,37 @@ class User {
     return result.rows[0];
   }
 
+  static async findByPhoneDigits(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) return null;
+
+    const query = `
+      SELECT
+        u.id,
+        u.name,
+        u.phone,
+        u.username,
+        u.email,
+        u.role,
+        u.inventory_location,
+        u.admin_id,
+        u.enable_par_levels,
+        u.subscription_plan_id,
+        u.is_active,
+        p.name as admin_name,
+        u.password_hash,
+        u.created_at,
+        u.updated_at
+      FROM users u
+      LEFT JOIN users p ON u.admin_id = p.id
+      WHERE regexp_replace(u.phone, '[^0-9]', '', 'g') = $1
+         OR u.phone = $2
+      LIMIT 1
+    `;
+    const result = await pool.query(query, [digits, phone]);
+    return result.rows[0];
+  }
+
   static async findByPhone(phone) {
     const query = `
       SELECT
