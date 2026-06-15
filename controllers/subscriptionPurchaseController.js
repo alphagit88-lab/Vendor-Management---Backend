@@ -3,8 +3,9 @@ const User = require('../models/User');
 const SubscriptionPlan = require('../models/SubscriptionPlan');
 const SubscriptionPurchase = require('../models/SubscriptionPurchase');
 const {
-  createSubscriptionCheckoutSession,
+  createPaymentIntent,
   retrieveCheckoutSession,
+  retrievePaymentIntent,
 } = require('../utils/stripe');
 
 async function fulfillPaidSubscription(purchaseId) {
@@ -149,21 +150,26 @@ exports.requestPlanChange = async (req, res) => {
       purchaseType: user.subscription_plan_id ? 'upgrade' : 'initial',
     });
 
-    const session = await createSubscriptionCheckoutSession({
-      purchase,
-      plan,
-      userEmail: user.email,
+    const paymentIntent = await createPaymentIntent({
+      amount: planPrice,
+      currency: 'usd',
+      metadata: {
+        type: 'subscription_purchase',
+        subscription_purchase_id: String(purchase.id),
+        user_id: String(purchase.userId),
+        subscription_plan_id: String(plan.id),
+      },
     });
 
-    await SubscriptionPurchase.updateStripeSessionId(purchase.id, session.id);
+    await SubscriptionPurchase.updateStripeSessionId(purchase.id, paymentIntent.id);
 
     res.status(201).json({
       success: true,
       data: {
         action: 'checkout',
         purchaseId: purchase.id,
-        checkoutUrl: session.url,
-        sessionId: session.id,
+        clientSecret: paymentIntent.client_secret,
+        sessionId: paymentIntent.id,
         amount: planPrice,
       },
     });
@@ -187,24 +193,55 @@ exports.verifyCheckoutSession = async (req, res) => {
       return res.status(400).json({ success: false, message: 'session_id is required' });
     }
 
-    const session = await retrieveCheckoutSession(sessionId);
-    const purchaseId = Number(session.metadata?.subscription_purchase_id);
+    let purchaseId;
+    let paymentStatus;
+    let purchase;
+    let userId;
 
-    if (!purchaseId || session.metadata?.type !== 'subscription_purchase') {
-      return res.status(404).json({ success: false, message: 'Subscription purchase not found' });
-    }
+    if (sessionId.startsWith('pi_')) {
+      const paymentIntent = await retrievePaymentIntent(sessionId);
+      purchaseId = Number(paymentIntent.metadata?.subscription_purchase_id);
+      userId = Number(paymentIntent.metadata?.user_id);
+      paymentStatus = paymentIntent.status === 'succeeded' ? 'paid' : paymentIntent.status;
 
-    let purchase = await SubscriptionPurchase.findByStripeSessionId(sessionId);
+      if (!purchaseId || paymentIntent.metadata?.type !== 'subscription_purchase') {
+        return res.status(404).json({ success: false, message: 'Subscription purchase not found' });
+      }
 
-    if (Number(session.metadata?.user_id) !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
+      purchase = await SubscriptionPurchase.findByStripeSessionId(sessionId);
 
-    if (session.payment_status === 'paid' && purchase?.status === 'pending') {
-      purchase = await fulfillPaidSubscription(purchaseId);
-    } else if (session.payment_status !== 'paid' && purchase?.status === 'pending') {
-      await SubscriptionPurchase.markFailed(purchaseId, 'cancelled');
-      purchase = await SubscriptionPurchase.findById(purchaseId);
+      if (userId !== req.user.id) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+
+      if (paymentIntent.status === 'succeeded' && purchase?.status === 'pending') {
+        purchase = await fulfillPaidSubscription(purchaseId);
+      } else if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing' && purchase?.status === 'pending') {
+        await SubscriptionPurchase.markFailed(purchaseId, 'cancelled');
+        purchase = await SubscriptionPurchase.findById(purchaseId);
+      }
+    } else {
+      const session = await retrieveCheckoutSession(sessionId);
+      purchaseId = Number(session.metadata?.subscription_purchase_id);
+      userId = Number(session.metadata?.user_id);
+      paymentStatus = session.payment_status;
+
+      if (!purchaseId || session.metadata?.type !== 'subscription_purchase') {
+        return res.status(404).json({ success: false, message: 'Subscription purchase not found' });
+      }
+
+      purchase = await SubscriptionPurchase.findByStripeSessionId(sessionId);
+
+      if (userId !== req.user.id) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+
+      if (session.payment_status === 'paid' && purchase?.status === 'pending') {
+        purchase = await fulfillPaidSubscription(purchaseId);
+      } else if (session.payment_status !== 'paid' && purchase?.status === 'pending') {
+        await SubscriptionPurchase.markFailed(purchaseId, 'cancelled');
+        purchase = await SubscriptionPurchase.findById(purchaseId);
+      }
     }
 
     const subscriptionPlan = await User.getSubscriptionPlan(req.user.id);
@@ -214,7 +251,7 @@ exports.verifyCheckoutSession = async (req, res) => {
       data: {
         purchase,
         subscriptionPlan,
-        paymentStatus: session.payment_status,
+        paymentStatus,
       },
     });
   } catch (error) {

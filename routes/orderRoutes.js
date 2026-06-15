@@ -8,6 +8,7 @@ router.get('/:id', authenticate, orderController.getOrder);
 router.post('/', authenticate, orderController.createOrder);
 router.post('/:id/checklist', authenticate, orderController.getOrderChecklist);
 router.put('/:id/status', authenticate, verifyAdmin, orderController.updateStatus);
+router.get('/:id/txt', authenticate, orderController.getOrderTXT);
 router.delete('/:id', authenticate, verifyAdmin, orderController.deleteOrder);
 
 module.exports = router;

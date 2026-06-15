@@ -87,10 +87,27 @@ function constructWebhookEvent(rawBody, signature) {
   return stripe.webhooks.constructEvent(rawBody, signature, secret);
 }
 
+async function createPaymentIntent({ amount, currency = 'usd', metadata }) {
+  const stripe = getStripe();
+  return stripe.paymentIntents.create({
+    amount: Math.round(amount * 100),
+    currency,
+    payment_method_types: ['card'],
+    metadata,
+  });
+}
+
+async function retrievePaymentIntent(paymentIntentId) {
+  const stripe = getStripe();
+  return stripe.paymentIntents.retrieve(paymentIntentId);
+}
+
 module.exports = {
   getStripe,
   createCheckoutSession,
   createSubscriptionCheckoutSession,
   retrieveCheckoutSession,
   constructWebhookEvent,
+  createPaymentIntent,
+  retrievePaymentIntent,
 };

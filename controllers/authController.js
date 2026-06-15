@@ -84,9 +84,9 @@ exports.register = async (req, res) => {
     const { name, email, phone, password, subscription_plan_id } = req.body;
 
     if (!name || !email || !phone || !password || !subscription_plan_id) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Name, email, phone, password, and subscription plan are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email, phone, password, and subscription plan are required'
       });
     }
 

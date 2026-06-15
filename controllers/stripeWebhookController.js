@@ -24,6 +24,21 @@ exports.handleStripeWebhook = async (req, res) => {
           }
         }
       }
+    } else if (event.type === 'payment_intent.succeeded') {
+      const paymentIntent = event.data.object;
+      const metadataType = paymentIntent.metadata?.type;
+
+      if (metadataType === 'subscription_purchase') {
+        const purchaseId = Number(paymentIntent.metadata?.subscription_purchase_id);
+        if (purchaseId) {
+          await fulfillPaidSubscription(purchaseId);
+        }
+      } else if (metadataType === 'hardware_shop') {
+        const orderId = Number(paymentIntent.metadata?.shop_order_id);
+        if (orderId) {
+          await fulfillPaidOrder(orderId);
+        }
+      }
     }
 
     res.json({ received: true });

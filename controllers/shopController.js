@@ -2,8 +2,9 @@ const pool = require('../config/database');
 const HardwareProduct = require('../models/HardwareProduct');
 const ShopOrder = require('../models/ShopOrder');
 const {
-  createCheckoutSession,
+  createPaymentIntent,
   retrieveCheckoutSession,
+  retrievePaymentIntent,
 } = require('../utils/stripe');
 
 function validateCustomer(customer) {
@@ -166,18 +167,19 @@ exports.createCheckout = async (req, res) => {
       items: orderItems,
     });
 
-    const session = await createCheckoutSession({
-      order: {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        customerEmail: order.customerEmail,
+    const paymentIntent = await createPaymentIntent({
+      amount: total,
+      currency: 'usd',
+      metadata: {
+        type: 'hardware_shop',
+        shop_order_id: String(order.id),
+        order_number: order.orderNumber,
       },
-      lineItems: stripeLineItems,
     });
 
     await client.query(
       'UPDATE shop_orders SET stripe_session_id = $2, updated_at = NOW() WHERE id = $1',
-      [order.id, session.id]
+      [order.id, paymentIntent.id]
     );
 
     await client.query('COMMIT');
@@ -187,8 +189,8 @@ exports.createCheckout = async (req, res) => {
       data: {
         orderId: order.id,
         orderNumber: order.orderNumber,
-        checkoutUrl: session.url,
-        sessionId: session.id,
+        clientSecret: paymentIntent.client_secret,
+        sessionId: paymentIntent.id,
       },
     });
   } catch (error) {
@@ -210,20 +212,44 @@ exports.verifyCheckoutSession = async (req, res) => {
       return res.status(400).json({ success: false, message: 'session_id is required' });
     }
 
-    const session = await retrieveCheckoutSession(sessionId);
-    const orderId = Number(session.metadata?.shop_order_id);
+    let orderId;
+    let paymentStatus;
+    let order;
 
-    if (!orderId) {
-      return res.status(404).json({ success: false, message: 'Order not found for this session' });
-    }
+    if (sessionId.startsWith('pi_')) {
+      const paymentIntent = await retrievePaymentIntent(sessionId);
+      orderId = Number(paymentIntent.metadata?.shop_order_id);
+      paymentStatus = paymentIntent.status === 'succeeded' ? 'paid' : paymentIntent.status;
 
-    let order = await ShopOrder.findByStripeSessionId(sessionId);
+      if (!orderId) {
+        return res.status(404).json({ success: false, message: 'Order not found for this payment' });
+      }
 
-    if (session.payment_status === 'paid' && order?.status === 'pending') {
-      order = await fulfillPaidOrder(orderId);
-    } else if (session.payment_status !== 'paid' && order?.status === 'pending') {
-      await ShopOrder.markFailed(orderId, 'cancelled');
-      order = await ShopOrder.findById(orderId);
+      order = await ShopOrder.findByStripeSessionId(sessionId);
+
+      if (paymentIntent.status === 'succeeded' && order?.status === 'pending') {
+        order = await fulfillPaidOrder(orderId);
+      } else if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing' && order?.status === 'pending') {
+        await ShopOrder.markFailed(orderId, 'cancelled');
+        order = await ShopOrder.findById(orderId);
+      }
+    } else {
+      const session = await retrieveCheckoutSession(sessionId);
+      orderId = Number(session.metadata?.shop_order_id);
+      paymentStatus = session.payment_status;
+
+      if (!orderId) {
+        return res.status(404).json({ success: false, message: 'Order not found for this session' });
+      }
+
+      order = await ShopOrder.findByStripeSessionId(sessionId);
+
+      if (session.payment_status === 'paid' && order?.status === 'pending') {
+        order = await fulfillPaidOrder(orderId);
+      } else if (session.payment_status !== 'paid' && order?.status === 'pending') {
+        await ShopOrder.markFailed(orderId, 'cancelled');
+        order = await ShopOrder.findById(orderId);
+      }
     }
 
     if (!order) {
@@ -234,7 +260,7 @@ exports.verifyCheckoutSession = async (req, res) => {
       success: true,
       data: {
         order,
-        paymentStatus: session.payment_status,
+        paymentStatus,
       },
     });
   } catch (error) {
