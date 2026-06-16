@@ -78,6 +78,7 @@ class Order {
              c.address as customer_address, 
              c.account_id, 
              c.phone as customer_phone, 
+             c.email as customer_email,
              c.tobacco_permit_number,
              u.name as user_name,
              u.admin_id as salesperson_admin_id,

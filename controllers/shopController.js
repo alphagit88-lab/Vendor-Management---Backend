@@ -11,7 +11,15 @@ function validateCustomer(customer) {
   if (!customer?.name?.trim()) return 'Customer name is required';
   if (!customer?.email?.trim()) return 'Customer email is required';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email.trim())) return 'Valid email is required';
-  if (!customer?.shippingAddress?.trim()) return 'Shipping address is required';
+  
+  if (customer && customer.shippingAddressLine1 !== undefined) {
+    if (!customer.shippingAddressLine1.trim()) return 'Street address is required';
+    if (!customer.shippingCity?.trim()) return 'City is required';
+    if (!customer.shippingZip?.trim()) return 'ZIP/Postal code is required';
+    if (!customer.shippingCountry?.trim()) return 'Country is required';
+  } else {
+    if (!customer?.shippingAddress?.trim()) return 'Shipping address is required';
+  }
   return null;
 }
 
@@ -156,12 +164,23 @@ exports.createCheckout = async (req, res) => {
 
     const { orderItems, stripeLineItems, subtotal, total } = await buildValidatedLineItems(client, cartItems);
 
+    let shippingAddress = req.body.customer.shippingAddress;
+    if (req.body.customer.shippingAddressLine1 !== undefined) {
+      shippingAddress = JSON.stringify([
+        { key: 'shippingAddressLine1', value: req.body.customer.shippingAddressLine1.trim() },
+        { key: 'shippingAddressLine2', value: req.body.customer.shippingAddressLine2?.trim() || '' },
+        { key: 'shippingCity', value: req.body.customer.shippingCity.trim() },
+        { key: 'shippingZip', value: req.body.customer.shippingZip.trim() },
+        { key: 'shippingCountry', value: req.body.customer.shippingCountry.trim() }
+      ]);
+    }
+
     const order = await ShopOrder.createWithItems(client, {
       customer: {
         name: req.body.customer.name.trim(),
         email: req.body.customer.email.trim().toLowerCase(),
         phone: req.body.customer.phone?.trim() || null,
-        shippingAddress: req.body.customer.shippingAddress.trim(),
+        shippingAddress: shippingAddress.trim(),
       },
       totals: { subtotal, total },
       items: orderItems,

@@ -1,6 +1,8 @@
 const Order = require('../models/Order');
 const Setting = require('../models/Setting');
 const { getAdminId } = require('../utils/adminHelper');
+const { generateEdiText } = require('../utils/ediGenerator');
+const { sendInvoiceEdiEmail } = require('../utils/emailService');
 
 exports.getOrders = async (req, res) => {
   try {
@@ -68,13 +70,33 @@ exports.createOrder = async (req, res) => {
       check_number,
       is_checklist,
       clientTimestamp,
-      client_timestamp
+      client_timestamp,
+      returns,
+      returnAmount
     } = req.body;
     
     // Simple order number generation (e.g., ORD-timestamp)
     const order_number = `ORD-${Date.now().toString().slice(-8)}`;
 
-    const total_amount = items.reduce((acc, item) => acc + parseFloat(item.subtotal || 0), 0);
+    let total_amount = items.reduce((acc, item) => acc + parseFloat(item.subtotal || 0), 0);
+    const parsedReturnAmount = parseFloat(returnAmount) || 0;
+    total_amount = total_amount - parsedReturnAmount;
+
+    // Process Returns if any
+    let savedReturns = [];
+    if (returns && Array.isArray(returns) && returns.length > 0) {
+      const ReturnModel = require('../models/Return');
+      const returnsToSave = returns.map(r => ({
+        ...r,
+        user_id: user_id || req.user.id,
+        admin_id: req.user.role === 'admin' ? req.user.id : null,
+      }));
+      try {
+        savedReturns = await ReturnModel.createBatch(returnsToSave);
+      } catch (err) {
+        console.error('⚠️ Failed to save returns:', err.message);
+      }
+    }
 
     const newOrder = await Order.create({
       order_number,
@@ -119,12 +141,41 @@ exports.createOrder = async (req, res) => {
         driverSignature,
         paymentType: payment_type,
         checkNumber: check_number,
-        clientTimestamp: clientTimestamp || client_timestamp
+        clientTimestamp: clientTimestamp || client_timestamp,
+        returns: returns,
+        returnAmount: parsedReturnAmount
       });
 
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       billUrl = `${baseUrl}/uploads/bills/${fileName}`;
       console.log(`📄 BILL GENERATED: ${billUrl}`);
+
+      // --- Send EDI email to customer (fire-and-forget) ---
+      const customerEmail = fullOrder.customer_email;
+      if (customerEmail) {
+        const ediContent = generateEdiText(fullOrder);
+        const ediFileName = `invoice_${order_number}.txt`;
+        const orderDate = clientTimestamp || client_timestamp
+          ? new Date(clientTimestamp || client_timestamp).toLocaleString()
+          : new Date(fullOrder.created_at).toLocaleString();
+
+        sendInvoiceEdiEmail({
+          toEmail: customerEmail,
+          customerName: fullOrder.customer_name,
+          orderNumber: order_number,
+          orderDate,
+          salespersonName: fullOrder.user_name,
+          paymentType: payment_type || 'N/A',
+          totalAmount: fullOrder.total_amount,
+          ediContent,
+          ediFileName,
+          shop: settings || {},
+        }).catch(emailErr => {
+          console.error('⚠️ Invoice EDI email failed:', emailErr.message);
+        });
+      } else {
+        console.warn(`⚠️ No customer email found for order ${order_number}, skipping EDI email.`);
+      }
     } catch (billError) {
       console.error('⚠️ Bill Generation failed:', billError.message);
     }
@@ -264,25 +315,7 @@ exports.getOrderTXT = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    // Extract numeric part from order_number (e.g. "ORD-12345678" -> "12345678")
-    const invoiceNum = (order.order_number || '').replace(/\D/g, '');
-    const totalCents = Math.round(parseFloat(order.total_amount || 0) * 100);
-
-    // Header: ATXJASM + 10-char invoice number (space-padded) + 16-char total in cents (zero-padded)
-    const header = `ATXJASM${invoiceNum.padStart(10, ' ')}${totalCents.toString().padStart(16, '0')}`;
-
-    const items = Array.isArray(order.items) ? order.items : [];
-    const lines = items.map((it) => {
-      const itemNum = String(it.item_number || it.item_id || '').padStart(11, '0');
-      const desc = (it.item_name || '').substring(0, 25).padEnd(25, ' ');
-      const sku = String(it.item_id || '').padStart(6, '0');
-      const priceCents = Math.round(parseFloat(it.unit_price || 0) * 100).toString().padStart(6, '0');
-      const qty = String(Math.abs(it.quantity || 0)).padStart(6, '0');
-      const subtotalCents = Math.round(parseFloat(it.subtotal || 0) * 100).toString().padStart(10, '0');
-      return `B${itemNum}${desc}${sku}${priceCents}  ${qty}${subtotalCents}001`;
-    });
-
-    const txt = [header, ...lines, ''].join('\r\n');
+    const txt = generateEdiText(order);
 
     res.setHeader('Content-Type', 'text/plain');
     res.setHeader('Content-Disposition', `attachment; filename="invoice_${order.order_number}.txt"`);

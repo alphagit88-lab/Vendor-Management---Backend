@@ -110,9 +110,13 @@ const drawBillContent = (doc, data) => {
   const totalsX = 105;
   doc.fontSize(7);
 
+  const returnDeduction = parseFloat(data.returnAmount || 0);
+  const finalTotal = parseFloat(order.total_amount || 0);
+  const grossTotal = finalTotal + returnDeduction;
+
   let currentY = doc.y;
   doc.text('Total Sales:', totalsX, currentY);
-  doc.text(`$${parseFloat(order.total_amount).toFixed(2)}`, 160, currentY, { align: 'right', width: 34 });
+  doc.text(`$${grossTotal.toFixed(2)}`, 160, currentY, { align: 'right', width: 34 });
   doc.moveDown(0.2);
 
   currentY = doc.y;
@@ -126,9 +130,56 @@ const drawBillContent = (doc, data) => {
   doc.moveDown(0.4);
 
   currentY = doc.y;
-  doc.font('Helvetica-Bold').fontSize(8.5).text('Invoice Total:', totalsX, currentY);
-  doc.text(`$${parseFloat(order.total_amount || 0).toFixed(2)}`, 160, currentY, { align: 'right', width: 34 });
+  doc.font('Helvetica-Bold').fontSize(8.5).text(returnDeduction > 0 ? 'Subtotal:' : 'Invoice Total:', totalsX, currentY);
+  doc.text(`$${grossTotal.toFixed(2)}`, 160, currentY, { align: 'right', width: 34 });
   doc.font('Helvetica');
+
+  // --- RETURNS ---
+  if (data.returns && data.returns.length > 0) {
+    doc.moveDown(1.5);
+    doc.fontSize(7).font('Helvetica-Bold');
+    doc.text('RETURNS SUMMARY:', 10, doc.y);
+    doc.moveDown(0.5);
+
+    const returnTableTop = doc.y;
+    doc.fontSize(6).font('Helvetica-Bold');
+    doc.text('ITEM#', 10, returnTableTop);
+    doc.text('QTY', 50, returnTableTop);
+    doc.text('REASON', 80, returnTableTop);
+    doc.strokeColor('#000000').moveTo(10, returnTableTop + 8).lineTo(194, returnTableTop + 8).stroke();
+    doc.moveDown(1);
+
+    doc.fontSize(6).font('Helvetica');
+    data.returns.forEach(ret => {
+      const startY = doc.y;
+      doc.text(ret.item_id.toString(), 10, startY);
+      doc.text(ret.quantity.toString(), 50, startY);
+      doc.text(ret.reason || 'N/A', 80, startY, { width: 114 });
+      doc.moveDown(0.3);
+    });
+
+    if (returnDeduction > 0) {
+      doc.moveDown(0.5);
+
+      // Divider before Return Deduction
+      doc.moveTo(10, doc.y).lineTo(194, doc.y).stroke();
+      doc.moveDown(0.5);
+
+      let rDeductY = doc.y;
+      doc.font('Helvetica-Bold').fontSize(7);
+      doc.text('Return Deduction:', totalsX, rDeductY);
+      // Move amount down by 3px to align with label
+      doc.text(`-$${returnDeduction.toFixed(2)}`, 160, rDeductY, { align: 'right', width: 34 });
+
+      doc.moveDown(0.5);
+
+      let fTotalY = doc.y;
+      doc.font('Helvetica-Bold').fontSize(8.5).text('Invoice Total:', totalsX, fTotalY);
+      doc.text(`$${finalTotal.toFixed(2)}`, 160, fTotalY, { align: 'right', width: 34 });
+      doc.font('Helvetica');
+    }
+  }
+
   doc.moveDown(1);
 
   // --- FOOTER / LEGAL ---

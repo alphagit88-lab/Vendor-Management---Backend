@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice #{{ORDER_NUMBER}}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #2d3748;
+    }
+
+    .wrapper {
+      width: 100%;
+      padding: 40px 20px;
+      box-sizing: border-box;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .header {
+      background: #1a202c;
+      padding: 32px 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      margin: 6px 0 0;
+      color: #a0aec0;
+      font-size: 13px;
+    }
+
+    .body {
+      padding: 36px 40px;
+    }
+
+    .greeting {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .intro {
+      font-size: 14px;
+      color: #4a5568;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .summary-card {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 28px;
+    }
+
+    .summary-card h3 {
+      margin: 0 0 14px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #718096;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      padding: 4px 0;
+      color: #2d3748;
+    }
+
+    .summary-row.total {
+      font-weight: 800;
+      font-size: 16px;
+      border-top: 1px solid #e2e8f0;
+      margin-top: 10px;
+      padding-top: 10px;
+      color: #1a202c;
+    }
+
+    .attachment-notice {
+      background: #ebf8ff;
+      border: 1px solid #bee3f8;
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-size: 13px;
+      color: #2b6cb0;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .attachment-notice strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .footer {
+      background: #f7fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 24px 40px;
+      text-align: center;
+      font-size: 12px;
+      color: #a0aec0;
+      line-height: 1.6;
+    }
+
+    .footer strong {
+      color: #718096;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h1>{{COMPANY_NAME}}</h1>
+        <p>Invoice #{{ORDER_NUMBER}}</p>
+      </div>
+
+      <div class="body">
+        <p class="greeting">Dear {{CUSTOMER_NAME}},</p>
+        <p class="intro">
+          Thank you for your order. Please find your invoice details below.
+          The EDI file for this invoice is attached to this email for your records.
+        </p>
+
+        <div class="summary-card">
+          <h3>Order Summary</h3>
+          <div class="summary-row">
+            <span>Invoice #</span>
+            <span>{{ORDER_NUMBER}}</span>
+          </div>
+          <div class="summary-row">
+            <span>Date</span>
+            <span>{{ORDER_DATE}}</span>
+          </div>
+          <div class="summary-row">
+            <span>Sales Rep</span>
+            <span>{{SALESPERSON_NAME}}</span>
+          </div>
+          <div class="summary-row">
+            <span>Payment Type</span>
+            <span>{{PAYMENT_TYPE}}</span>
+          </div>
+          <div class="summary-row total">
+            <span>Invoice Total</span>
+            <span>${{TOTAL_AMOUNT}}</span>
+          </div>
+        </div>
+
+        <div class="attachment-notice">
+          <div>
+            <strong>📎 EDI File Attached</strong>
+            The EDI transaction file <em>{{EDI_FILE_NAME}}</em> is attached to this email.
+          </div>
+        </div>
+
+        <p style="font-size: 13px; color: #718096;">
+          If you have any questions about this invoice, please
+          <a href="{{FRONTEND_URL}}/#contact" style="color: #3182ce; text-decoration: none;">contact us</a>.
+        </p>
+      </div>
+
+      <div class="footer">
+        <strong>{{COMPANY_NAME}}</strong><br />
+        {{COMPANY_ADDRESS}}<br />
+        {{COMPANY_PHONE}}
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

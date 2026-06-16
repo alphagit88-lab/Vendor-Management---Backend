@@ -2,13 +2,63 @@ const pool = require('../config/database');
 
 function mapOrder(row, items = []) {
   if (!row) return null;
+
+  let shippingAddress = row.shipping_address;
+  let shippingAddressLine1 = '';
+  let shippingAddressLine2 = '';
+  let shippingCity = '';
+  let shippingZip = '';
+  let shippingCountry = '';
+  let shippingAddressDetails = null;
+
+  try {
+    const trimmed = (row.shipping_address || '').trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      let parsed = JSON.parse(trimmed);
+      shippingAddressDetails = parsed;
+
+      if (Array.isArray(parsed)) {
+        const details = {};
+        parsed.forEach(item => {
+          if (item && item.key) details[item.key] = item.value;
+        });
+        parsed = details;
+      }
+
+      if (parsed && typeof parsed === 'object') {
+        shippingAddressLine1 = parsed.shippingAddressLine1 || parsed.line1 || '';
+        shippingAddressLine2 = parsed.shippingAddressLine2 || parsed.line2 || '';
+        shippingCity = parsed.shippingCity || parsed.city || '';
+        shippingZip = parsed.shippingZip || parsed.zip || '';
+        shippingCountry = parsed.shippingCountry || parsed.country || '';
+
+        const parts = [
+          shippingAddressLine1.trim(),
+          shippingAddressLine2.trim(),
+          shippingCity.trim(),
+          shippingZip.trim(),
+          shippingCountry.trim()
+        ];
+        shippingAddress = parts.filter(Boolean).join('\n');
+      }
+    }
+  } catch (e) {
+    // Fallback to raw value
+  }
+
   return {
     id: row.id,
     orderNumber: row.order_number,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
     customerPhone: row.customer_phone,
-    shippingAddress: row.shipping_address,
+    shippingAddress: shippingAddress,
+    shippingAddressLine1: shippingAddressLine1 || null,
+    shippingAddressLine2: shippingAddressLine2 || null,
+    shippingCity: shippingCity || null,
+    shippingZip: shippingZip || null,
+    shippingCountry: shippingCountry || null,
+    shippingAddressDetails: shippingAddressDetails,
     status: row.status,
     stripeSessionId: row.stripe_session_id,
     subtotal: parseFloat(row.subtotal),
