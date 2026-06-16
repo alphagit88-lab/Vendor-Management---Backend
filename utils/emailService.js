@@ -68,7 +68,7 @@ const sendInvoiceEdiEmail = async ({
 
   await transporter.sendMail({
     from: `"${shop.company_name || 'SuperVendor'}" <${process.env.AWS_SES_FROM_EMAIL}>`,
-    to: "shanmadusanka969@gmail.com",
+    to: "chathura.itexphere@gmail.com",
     subject: `Invoice #${orderNumber} – EDI File Attached`,
     html,
     attachments: [
