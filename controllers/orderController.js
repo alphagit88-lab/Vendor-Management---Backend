@@ -125,6 +125,32 @@ exports.createOrder = async (req, res) => {
       const orderAdminId = await getAdminId(req);
       const settings = await Setting.getAll(orderAdminId);
       
+      const Item = require('../models/Item');
+      let enhancedReturns = [];
+      if (returns && Array.isArray(returns) && returns.length > 0) {
+        for (const ret of returns) {
+          try {
+            const itemId = ret.item_id || ret.itemId;
+            const resolvedItem = await Item.findByIdWithCustomerPrice(itemId, customer_id || customerId);
+            const unitPrice = resolvedItem ? resolvedItem.resolved_price : 0;
+            const subtotal = unitPrice * parseFloat(ret.quantity || 0);
+            
+            enhancedReturns.push({
+              item_id: itemId,
+              item_number: resolvedItem ? resolvedItem.item_number : itemId,
+              item_name: resolvedItem ? resolvedItem.description_name : (ret.description || ''),
+              quantity: ret.quantity,
+              unit_price: unitPrice,
+              subtotal: subtotal,
+              amount: subtotal // keeping amount for compatibility if needed
+            });
+          } catch (err) {
+            console.error('⚠️ Failed to fetch return item details:', err.message);
+            enhancedReturns.push(ret);
+          }
+        }
+      }
+
       const fileName = await generateBill({
         order: fullOrder,
         customer: {
@@ -142,7 +168,7 @@ exports.createOrder = async (req, res) => {
         paymentType: payment_type,
         checkNumber: check_number,
         clientTimestamp: clientTimestamp || client_timestamp,
-        returns: returns,
+        returns: enhancedReturns,
         returnAmount: parsedReturnAmount
       });
 

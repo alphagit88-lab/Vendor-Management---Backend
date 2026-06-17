@@ -110,9 +110,13 @@ const drawBillContent = (doc, data) => {
   const totalsX = 105;
   doc.fontSize(7);
 
-  const returnDeduction = parseFloat(data.returnAmount || 0);
-  const finalTotal = parseFloat(order.total_amount || 0);
-  const grossTotal = finalTotal + returnDeduction;
+  // Calculate total return amount directly from enhanced returns array
+  const returnTotal = (data.returns || []).reduce((sum, ret) => {
+    return sum + parseFloat(ret.subtotal || 0);
+  }, 0);
+  const grossTotal = parseFloat(order.total_amount || 0);
+  const finalTotal = grossTotal - returnTotal;
+
 
   let currentY = doc.y;
   doc.text('Total Sales:', totalsX, currentY);
@@ -130,8 +134,9 @@ const drawBillContent = (doc, data) => {
   doc.moveDown(0.4);
 
   currentY = doc.y;
-  doc.font('Helvetica-Bold').fontSize(8.5).text(returnDeduction > 0 ? 'Subtotal:' : 'Invoice Total:', totalsX, currentY);
-  doc.text(`$${grossTotal.toFixed(2)}`, 160, currentY, { align: 'right', width: 34 });
+  doc.font('Helvetica-Bold').fontSize(8.5).text(returnTotal > 0 ? 'Subtotal:' : 'Invoice Total:', totalsX, currentY);
+  const formattedGrossTotal = grossTotal < 0 ? `-$${Math.abs(grossTotal).toFixed(2)}` : `$${grossTotal.toFixed(2)}`;
+  doc.text(formattedGrossTotal, 160, currentY, { align: 'right', width: 34 });
   doc.font('Helvetica');
 
   // --- RETURNS ---
@@ -144,38 +149,47 @@ const drawBillContent = (doc, data) => {
     const returnTableTop = doc.y;
     doc.fontSize(6).font('Helvetica-Bold');
     doc.text('ITEM#', 10, returnTableTop);
-    doc.text('QTY', 50, returnTableTop);
-    doc.text('REASON', 80, returnTableTop);
+    doc.text('QTY', 39, returnTableTop);
+    doc.text('DESCRIPTION', 59, returnTableTop);
+    doc.text('AMOUNT', 160, returnTableTop, { align: 'right', width: 34 });
     doc.strokeColor('#000000').moveTo(10, returnTableTop + 8).lineTo(194, returnTableTop + 8).stroke();
     doc.moveDown(1);
 
     doc.fontSize(6).font('Helvetica');
     data.returns.forEach(ret => {
       const startY = doc.y;
-      doc.text(ret.item_id.toString(), 10, startY);
-      doc.text(ret.quantity.toString(), 50, startY);
-      doc.text(ret.reason || 'N/A', 80, startY, { width: 114 });
+      doc.text(ret.item_number || ret.item_id.toString(), 10, startY);
+      doc.text(ret.quantity.toString(), 39, startY);
+      
+      const description = ret.item_name || ret.description || '';
+      doc.text(description, 59, startY, { width: 108 });
+      
+      const amount = -parseFloat(ret.subtotal || 0);
+      doc.text(`-$${Math.abs(amount).toFixed(2)}`, 160, startY, { align: 'right', width: 34 });
+
       doc.moveDown(0.3);
     });
 
-    if (returnDeduction > 0) {
+    if (returnTotal > 0) {
       doc.moveDown(0.5);
 
-      // Divider before Return Deduction
+      // Divider before Return Total
       doc.moveTo(10, doc.y).lineTo(194, doc.y).stroke();
       doc.moveDown(0.5);
 
+
       let rDeductY = doc.y;
       doc.font('Helvetica-Bold').fontSize(7);
-      doc.text('Return Deduction:', totalsX, rDeductY);
-      // Move amount down by 3px to align with label
-      doc.text(`-$${returnDeduction.toFixed(2)}`, 160, rDeductY, { align: 'right', width: 34 });
+      // Return Total displays the summed negative amount of returns
+      doc.text('Return Total:', totalsX, rDeductY);
+      doc.text(`-$${returnTotal.toFixed(2)}`, 160, rDeductY, { align: 'right', width: 34 });
 
       doc.moveDown(0.5);
 
       let fTotalY = doc.y;
       doc.font('Helvetica-Bold').fontSize(8.5).text('Invoice Total:', totalsX, fTotalY);
-      doc.text(`$${finalTotal.toFixed(2)}`, 160, fTotalY, { align: 'right', width: 34 });
+      const formattedFinalTotal = finalTotal < 0 ? `-$${Math.abs(finalTotal).toFixed(2)}` : `$${finalTotal.toFixed(2)}`;
+      doc.text(formattedFinalTotal, 160, fTotalY, { align: 'right', width: 34 });
       doc.font('Helvetica');
     }
   }
