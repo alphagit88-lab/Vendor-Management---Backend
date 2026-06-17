@@ -11,11 +11,12 @@ function validateCustomer(customer) {
   if (!customer?.name?.trim()) return 'Customer name is required';
   if (!customer?.email?.trim()) return 'Customer email is required';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email.trim())) return 'Valid email is required';
-  
+
   if (customer && customer.shippingAddressLine1 !== undefined) {
     if (!customer.shippingAddressLine1.trim()) return 'Street address is required';
     if (!customer.shippingCity?.trim()) return 'City is required';
     if (!customer.shippingZip?.trim()) return 'ZIP/Postal code is required';
+    if (!customer.shippingState?.trim()) return 'State is required';
     if (!customer.shippingCountry?.trim()) return 'Country is required';
   } else {
     if (!customer?.shippingAddress?.trim()) return 'Shipping address is required';
@@ -90,8 +91,8 @@ async function buildValidatedLineItems(client, cartItems) {
           description: product.description || undefined,
           images: product.image
             ? [`${product.image.startsWith('/uploads/')
-                ? (process.env.API_PUBLIC_URL || process.env.FRONTEND_URL?.replace(':3000', ':5000') || 'http://localhost:5000')
-                : (process.env.FRONTEND_URL || 'http://localhost:3000')}${product.image}`]
+              ? (process.env.API_PUBLIC_URL || process.env.FRONTEND_URL?.replace(':3000', ':5000') || 'http://localhost:5000')
+              : (process.env.FRONTEND_URL || 'http://localhost:3000')}${product.image}`]
             : undefined,
         },
         unit_amount: Math.round(unitPrice * 100),
@@ -171,6 +172,7 @@ exports.createCheckout = async (req, res) => {
         { key: 'shippingAddressLine2', value: req.body.customer.shippingAddressLine2?.trim() || '' },
         { key: 'shippingCity', value: req.body.customer.shippingCity.trim() },
         { key: 'shippingZip', value: req.body.customer.shippingZip.trim() },
+        { key: 'shippingState', value: req.body.customer.shippingState.trim() },
         { key: 'shippingCountry', value: req.body.customer.shippingCountry.trim() }
       ]);
     }

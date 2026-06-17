@@ -8,6 +8,7 @@ function mapOrder(row, items = []) {
   let shippingAddressLine2 = '';
   let shippingCity = '';
   let shippingZip = '';
+  let shippingState = '';
   let shippingCountry = '';
   let shippingAddressDetails = null;
 
@@ -30,6 +31,7 @@ function mapOrder(row, items = []) {
         shippingAddressLine2 = parsed.shippingAddressLine2 || parsed.line2 || '';
         shippingCity = parsed.shippingCity || parsed.city || '';
         shippingZip = parsed.shippingZip || parsed.zip || '';
+        shippingState = parsed.shippingState || parsed.state || '';
         shippingCountry = parsed.shippingCountry || parsed.country || '';
 
         const parts = [
@@ -37,6 +39,7 @@ function mapOrder(row, items = []) {
           shippingAddressLine2.trim(),
           shippingCity.trim(),
           shippingZip.trim(),
+          shippingState.trim(),
           shippingCountry.trim()
         ];
         shippingAddress = parts.filter(Boolean).join('\n');
@@ -57,6 +60,7 @@ function mapOrder(row, items = []) {
     shippingAddressLine2: shippingAddressLine2 || null,
     shippingCity: shippingCity || null,
     shippingZip: shippingZip || null,
+    shippingState: shippingState || null,
     shippingCountry: shippingCountry || null,
     shippingAddressDetails: shippingAddressDetails,
     status: row.status,
