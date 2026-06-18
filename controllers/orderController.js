@@ -72,7 +72,9 @@ exports.createOrder = async (req, res) => {
       clientTimestamp,
       client_timestamp,
       returns,
-      returnAmount
+      returnAmount,
+      isUpcRequired,
+      is_upc_required
     } = req.body;
     
     // Simple order number generation (e.g., ORD-timestamp)
@@ -112,6 +114,7 @@ exports.createOrder = async (req, res) => {
       check_number,  // Capture check number
       is_checklist,  // Capture if it was generated as checklist
       client_timestamp: clientTimestamp || client_timestamp,
+      is_upc_required: isUpcRequired || is_upc_required || false,
       items
     });
 
@@ -132,7 +135,10 @@ exports.createOrder = async (req, res) => {
           try {
             const itemId = ret.item_id || ret.itemId;
             const resolvedItem = await Item.findByIdWithCustomerPrice(itemId, customer_id || customerId);
-            const unitPrice = resolvedItem ? resolvedItem.resolved_price : 0;
+            const retUnitPrice = ret.unit_price !== undefined ? ret.unit_price : ret.unitPrice;
+            const unitPrice = (retUnitPrice !== undefined && retUnitPrice !== null)
+              ? parseFloat(retUnitPrice)
+              : (resolvedItem ? resolvedItem.resolved_price : 0);
             const subtotal = unitPrice * parseFloat(ret.quantity || 0);
             
             enhancedReturns.push({

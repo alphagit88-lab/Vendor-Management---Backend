@@ -1,13 +1,13 @@
 const pool = require('../config/database');
 
 class Return {
-  static async create({ item_id, customer_id, user_id, admin_id, quantity, reason }) {
+  static async create({ item_id, customer_id, user_id, admin_id, quantity, reason, unit_price }) {
     const query = `
-      INSERT INTO returns (item_id, customer_id, user_id, admin_id, quantity, reason, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      INSERT INTO returns (item_id, customer_id, user_id, admin_id, quantity, reason, unit_price, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       RETURNING *
     `;
-    const values = [item_id, customer_id, user_id, admin_id, quantity, reason || null];
+    const values = [item_id, customer_id, user_id, admin_id, quantity, reason || null, unit_price !== undefined ? unit_price : null];
     const result = await pool.query(query, values);
     return result.rows[0];
   }
@@ -17,8 +17,8 @@ class Return {
     const dbClient = client || pool;
     for (const returnItem of returns) {
       const result = await dbClient.query(
-        `INSERT INTO returns (item_id, customer_id, user_id, admin_id, quantity, reason, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        `INSERT INTO returns (item_id, customer_id, user_id, admin_id, quantity, reason, unit_price, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
          RETURNING *`,
         [
           returnItem.item_id,
@@ -26,7 +26,8 @@ class Return {
           returnItem.user_id,
           returnItem.admin_id,
           returnItem.quantity,
-          returnItem.reason || null
+          returnItem.reason || null,
+          returnItem.unit_price !== undefined ? returnItem.unit_price : null
         ]
       );
       createdReturns.push(result.rows[0]);

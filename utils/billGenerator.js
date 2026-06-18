@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const bwipjs = require('bwip-js');
 
 /**
  * Draws the actual content onto a PDF document.
@@ -87,17 +88,24 @@ const drawBillContent = (doc, data) => {
   doc.moveDown(1.5);
 
   // --- ITEMS ---
+  const upcRequired = order && order.is_upc_required;
   items.forEach(item => {
     const startY = doc.y;
     doc.fontSize(6.2);
     doc.text(item.item_number || 'N/A', 10, startY);
     doc.text(item.quantity.toString(), 39, startY);
 
-    // Description can span multiple lines
-    doc.text(item.item_name || item.description_name, 59, startY, { width: 108 });
-
     const lineTotal = `$${parseFloat(item.subtotal).toFixed(2)}`;
     doc.text(lineTotal, 160, startY, { align: 'right', width: 34 });
+
+    // Description can span multiple lines (updates doc.y)
+    doc.text(item.item_name || item.description_name, 59, startY, { width: 108 });
+
+    if (upcRequired && item.barcodeBuffer) {
+      doc.moveDown(0.15);
+      doc.image(item.barcodeBuffer, 59, doc.y, { width: 90, height: 18 });
+      doc.y += 19;
+    }
 
     doc.moveDown(0.3);
   });
@@ -115,7 +123,9 @@ const drawBillContent = (doc, data) => {
     return sum + parseFloat(ret.subtotal || 0);
   }, 0);
   const grossTotal = parseFloat(order.total_amount || 0);
-  const finalTotal = grossTotal - returnTotal;
+  const totalCredits = parseFloat(order.total_credits || 0);
+  const subtotalVal = grossTotal - returnTotal;
+  const finalTotal = subtotalVal - totalCredits;
 
 
   let currentY = doc.y;
@@ -123,21 +133,19 @@ const drawBillContent = (doc, data) => {
   doc.text(`$${grossTotal.toFixed(2)}`, 160, currentY, { align: 'right', width: 34 });
   doc.moveDown(0.2);
 
-  currentY = doc.y;
-  doc.text('Total Credits:', totalsX, currentY);
-  doc.text(`$${parseFloat(order.total_credits || 0).toFixed(2)}`, 160, currentY, { align: 'right', width: 34 });
-  doc.moveDown(0.2);
+  if (returnTotal === 0) {
+    currentY = doc.y;
+    doc.text('Total Credit:', totalsX, currentY);
+    const formattedCredits = totalCredits > 0 ? `-$${totalCredits.toFixed(2)}` : `$${totalCredits.toFixed(2)}`;
+    doc.text(formattedCredits, 160, currentY, { align: 'right', width: 34 });
+    doc.moveDown(0.4);
 
-  currentY = doc.y;
-  doc.text('Total Deposit:', totalsX, currentY);
-  doc.text(`$${parseFloat(order.total_deposit || 0).toFixed(2)}`, 160, currentY, { align: 'right', width: 34 });
-  doc.moveDown(0.4);
-
-  currentY = doc.y;
-  doc.font('Helvetica-Bold').fontSize(8.5).text(returnTotal > 0 ? 'Subtotal:' : 'Invoice Total:', totalsX, currentY);
-  const formattedGrossTotal = grossTotal < 0 ? `-$${Math.abs(grossTotal).toFixed(2)}` : `$${grossTotal.toFixed(2)}`;
-  doc.text(formattedGrossTotal, 160, currentY, { align: 'right', width: 34 });
-  doc.font('Helvetica');
+    currentY = doc.y;
+    doc.font('Helvetica-Bold').fontSize(8.5).text('Invoice Total:', totalsX, currentY);
+    const formattedFinalTotal = finalTotal < 0 ? `-$${Math.abs(finalTotal).toFixed(2)}` : `$${finalTotal.toFixed(2)}`;
+    doc.text(formattedFinalTotal, 160, currentY, { align: 'right', width: 34 });
+    doc.font('Helvetica');
+  }
 
   // --- RETURNS ---
   if (data.returns && data.returns.length > 0) {
@@ -147,7 +155,7 @@ const drawBillContent = (doc, data) => {
     doc.moveDown(0.5);
 
     const returnTableTop = doc.y;
-    doc.fontSize(6).font('Helvetica-Bold');
+    doc.fontSize(6.5).font('Helvetica-Bold');
     doc.text('ITEM#', 10, returnTableTop);
     doc.text('QTY', 39, returnTableTop);
     doc.text('DESCRIPTION', 59, returnTableTop);
@@ -155,15 +163,15 @@ const drawBillContent = (doc, data) => {
     doc.strokeColor('#000000').moveTo(10, returnTableTop + 8).lineTo(194, returnTableTop + 8).stroke();
     doc.moveDown(1);
 
-    doc.fontSize(6).font('Helvetica');
+    doc.fontSize(6.2).font('Helvetica');
     data.returns.forEach(ret => {
       const startY = doc.y;
       doc.text(ret.item_number || ret.item_id.toString(), 10, startY);
       doc.text(ret.quantity.toString(), 39, startY);
-      
+
       const description = ret.item_name || ret.description || '';
       doc.text(description, 59, startY, { width: 108 });
-      
+
       const amount = -parseFloat(ret.subtotal || 0);
       doc.text(`-$${Math.abs(amount).toFixed(2)}`, 160, startY, { align: 'right', width: 34 });
 
@@ -183,8 +191,19 @@ const drawBillContent = (doc, data) => {
       // Return Total displays the summed negative amount of returns
       doc.text('Return Total:', totalsX, rDeductY);
       doc.text(`-$${returnTotal.toFixed(2)}`, 160, rDeductY, { align: 'right', width: 34 });
+      doc.moveDown(0.2);
 
-      doc.moveDown(0.5);
+      let rCreditY = doc.y;
+      doc.text('Total Credit:', totalsX, rCreditY);
+      const formattedCredits = totalCredits > 0 ? `-$${totalCredits.toFixed(2)}` : `$${totalCredits.toFixed(2)}`;
+      doc.text(formattedCredits, 160, rCreditY, { align: 'right', width: 34 });
+      doc.moveDown(0.2);
+
+      let rSubtotalY = doc.y;
+      doc.text('Subtotal:', totalsX, rSubtotalY);
+      const formattedSubtotal = subtotalVal < 0 ? `-$${Math.abs(subtotalVal).toFixed(2)}` : `$${subtotalVal.toFixed(2)}`;
+      doc.text(formattedSubtotal, 160, rSubtotalY, { align: 'right', width: 34 });
+      doc.moveDown(0.4);
 
       let fTotalY = doc.y;
       doc.font('Helvetica-Bold').fontSize(8.5).text('Invoice Total:', totalsX, fTotalY);
@@ -251,6 +270,27 @@ const drawBillContent = (doc, data) => {
  */
 const generateBill = async (data) => {
   const { order } = data;
+
+  const upcRequired = order && order.is_upc_required;
+  if (upcRequired && data.items && data.items.length > 0) {
+    for (const item of data.items) {
+      if (item.upc) {
+        try {
+          item.barcodeBuffer = await bwipjs.toBuffer({
+            bcid: 'code128',
+            text: item.upc.toString().trim(),
+            scale: 2,
+            height: 10,
+            includetext: true,
+            textxalign: 'center',
+            textsize: 8,
+          });
+        } catch (err) {
+          console.error(`Failed to generate barcode for UPC "${item.upc}":`, err.message);
+        }
+      }
+    }
+  }
 
   const billsDir = path.join(__dirname, '..', 'uploads', 'bills');
   if (!fs.existsSync(billsDir)) fs.mkdirSync(billsDir, { recursive: true });
