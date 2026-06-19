@@ -1,35 +1,54 @@
 const pool = require('../config/database');
 
 class Return {
-  static async create({ item_id, customer_id, user_id, admin_id, quantity, reason, unit_price }) {
+  
+  /**
+   * Create a single return record.
+   * The amount is derived from `unit_price * quantity` and is not stored in the table.
+   */
+  static async create({ item_id, customer_id, user_id, admin_id, quantity, reason, unit_price, order_id }) {
     const query = `
-      INSERT INTO returns (item_id, customer_id, user_id, admin_id, quantity, reason, unit_price, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      INSERT INTO returns (item_id, customer_id, user_id, admin_id, quantity, reason, unit_price, order_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
       RETURNING *
     `;
-    const values = [item_id, customer_id, user_id, admin_id, quantity, reason || null, unit_price !== undefined ? unit_price : null];
+    const values = [
+      item_id,
+      customer_id,
+      user_id,
+      admin_id,
+      quantity,
+      reason || null,
+      unit_price !== undefined ? unit_price : null,
+      order_id || null
+    ];
     const result = await pool.query(query, values);
     return result.rows[0];
   }
 
+  /**
+   * Bulk‑insert multiple returns. Used after order creation to associate the order_id.
+   */
   static async createBatch(returns, client) {
-    const createdReturns = [];
     const dbClient = client || pool;
+    const createdReturns = [];
     for (const returnItem of returns) {
-      const result = await dbClient.query(
-        `INSERT INTO returns (item_id, customer_id, user_id, admin_id, quantity, reason, unit_price, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-         RETURNING *`,
-        [
-          returnItem.item_id,
-          returnItem.customer_id,
-          returnItem.user_id,
-          returnItem.admin_id,
-          returnItem.quantity,
-          returnItem.reason || null,
-          returnItem.unit_price !== undefined ? returnItem.unit_price : null
-        ]
-      );
+      const query = `
+        INSERT INTO returns (item_id, customer_id, user_id, admin_id, quantity, reason, unit_price, order_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        RETURNING *
+      `;
+      const values = [
+        returnItem.item_id,
+        returnItem.customer_id,
+        returnItem.user_id,
+        returnItem.admin_id,
+        returnItem.quantity,
+        returnItem.reason || null,
+        returnItem.unit_price !== undefined ? returnItem.unit_price : null,
+        returnItem.order_id || null
+      ];
+      const result = await dbClient.query(query, values);
       createdReturns.push(result.rows[0]);
     }
     return createdReturns;

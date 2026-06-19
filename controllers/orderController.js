@@ -3,6 +3,12 @@ const Setting = require('../models/Setting');
 const { getAdminId } = require('../utils/adminHelper');
 const { generateEdiText } = require('../utils/ediGenerator');
 const { sendInvoiceEdiEmail } = require('../utils/emailService');
+const { generateBill } = require('../utils/billGenerator');
+const fs = require('fs');
+const path = require('path');
+const Return = require('../models/Return');
+const pool = require('../config/database');
+
 
 exports.getOrders = async (req, res) => {
   try {
@@ -84,21 +90,7 @@ exports.createOrder = async (req, res) => {
     const parsedReturnAmount = parseFloat(returnAmount) || 0;
     total_amount = total_amount - parsedReturnAmount;
 
-    // Process Returns if any
-    let savedReturns = [];
-    if (returns && Array.isArray(returns) && returns.length > 0) {
-      const ReturnModel = require('../models/Return');
-      const returnsToSave = returns.map(r => ({
-        ...r,
-        user_id: user_id || req.user.id,
-        admin_id: req.user.role === 'admin' ? req.user.id : null,
-      }));
-      try {
-        savedReturns = await ReturnModel.createBatch(returnsToSave);
-      } catch (err) {
-        console.error('⚠️ Failed to save returns:', err.message);
-      }
-    }
+// Returns will be processed after order creation to attach order_id
 
     const newOrder = await Order.create({
       order_number,
@@ -120,7 +112,8 @@ exports.createOrder = async (req, res) => {
 
     // --- Generate Bill PDF ---
     let billUrl = null;
-    try {
+let enhancedReturns = [];
+  try {
       const { generateBill } = require('../utils/billGenerator');
       
       // Fetch full order with customer details for the bill
@@ -129,7 +122,9 @@ exports.createOrder = async (req, res) => {
       const settings = await Setting.getAll(orderAdminId);
       
       const Item = require('../models/Item');
-      let enhancedReturns = [];
+      const Return = require('../models/Return');
+
+
       if (returns && Array.isArray(returns) && returns.length > 0) {
         for (const ret of returns) {
           try {
@@ -212,15 +207,28 @@ exports.createOrder = async (req, res) => {
       console.error('⚠️ Bill Generation failed:', billError.message);
     }
 
-    res.status(201).json({ 
-      success: true, 
-      data: newOrder,
-      bill: billUrl ? {
-        url: billUrl,
-        file_name: `bill_${order_number}.pdf`
-      } : null,
-      bill_generation_error: billUrl ? null : 'Failed to generate receipt'
-    });
+      // Save returns to DB with the newly created order ID
+      if (enhancedReturns && enhancedReturns.length > 0) {
+        try {
+          const returnsWithOrderId = enhancedReturns.map(ret => ({
+            ...ret,
+            order_id: newOrder.id
+          }));
+          await Return.createBatch(returnsWithOrderId);
+        } catch (retErr) {
+          console.error('⚠️ Failed to save returns:', retErr.message);
+        }
+      }
+
+      res.status(201).json({ 
+        success: true, 
+        data: newOrder,
+        bill: billUrl ? {
+          url: billUrl,
+          file_name: `bill_${order_number}.pdf`
+        } : null,
+        bill_generation_error: billUrl ? null : 'Failed to generate receipt'
+      });
   } catch (error) {
     console.error('🔴 CREATE ORDER ERROR:', error);
     res.status(500).json({ 
@@ -356,4 +364,42 @@ exports.getOrderTXT = async (req, res) => {
     console.error('🔴 GET ORDER TXT ERROR:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
-};
+} 
+
+// Generate PDF for an order
+exports.getOrderPDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+    if (req.user.role === 'staff' && order.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    if (req.user.role === 'admin' && order.user_id !== req.user.id && order.salesperson_admin_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    const orderAdminId = await getAdminId(req);
+    const settings = await Setting.getAll(orderAdminId);
+    const fileName = await generateBill({
+      order,
+      customer: {
+        name: order.customer_name,
+        address: order.customer_address || 'Address not available',
+        phone: order.customer_phone || '',
+        account_id: order.account_id,
+        tobacco_permit_number: order.tobacco_permit_number,
+      },
+      items: order.items,
+      salesperson: { name: order.user_name },
+      shop: settings || {},
+      // No signatures for PDF download endpoint
+    });
+    const filePath = path.join(__dirname, '..', 'uploads', 'bills', fileName);
+    res.download(filePath, fileName);
+  } catch (error) {
+    console.error('🔴 GET ORDER PDF ERROR:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+}

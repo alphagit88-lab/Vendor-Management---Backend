@@ -11,4 +11,5 @@ router.put('/:id/status', authenticate, verifyAdmin, orderController.updateStatu
 router.get('/:id/txt', authenticate, orderController.getOrderTXT);
 router.delete('/:id', authenticate, verifyAdmin, orderController.deleteOrder);
 
+router.get('/:id/pdf', authenticate, orderController.getOrderPDF);
 module.exports = router;

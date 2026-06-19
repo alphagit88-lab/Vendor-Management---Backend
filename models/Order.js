@@ -1,18 +1,18 @@
 const pool = require('../config/database');
 
 class Order {
-  static async create({ order_number, customer_id, user_id, total_amount, total_credits, total_deposit, status, notes, load_number, payment_type, check_number, is_checklist, client_timestamp, is_upc_required, items }) {
+  static async create({ order_number, customer_id, user_id, total_amount, total_credits, total_deposit, total_return, status, notes, load_number, payment_type, check_number, is_checklist, client_timestamp, is_upc_required, items }) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
       // 1. Transactional Update - orders table (removed non-existent updated_at)
       const orderQuery = `
-        INSERT INTO orders (order_number, customer_id, user_id, total_amount, total_credits, total_deposit, status, notes, load_number, payment_type, check_number, is_checklist, client_timestamp, is_upc_required, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+        INSERT INTO orders (order_number, customer_id, user_id, total_amount, total_credits, total_deposit, total_return, status, notes, load_number, payment_type, check_number, is_checklist, client_timestamp, is_upc_required, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
         RETURNING *
       `;
-      const orderValues = [order_number, customer_id, user_id, total_amount, total_credits || 0, total_deposit || 0, status || 'pending', notes || null, load_number || null, payment_type || null, check_number || null, is_checklist || false, client_timestamp || null, is_upc_required || false];
+      const orderValues = [order_number, customer_id, user_id, total_amount, total_credits || 0, total_deposit || 0, total_return || 0, status || 'pending', notes || null, load_number || null, payment_type || null, check_number || null, is_checklist || false, client_timestamp || null, is_upc_required || false];
       const orderResult = await client.query(orderQuery, orderValues);
       const order = orderResult.rows[0];
 
@@ -74,10 +74,10 @@ class Order {
     const numericId = parseInt(id);
     const query = `
       SELECT o.*, 
-             c.name as customer_name, 
-             c.address as customer_address, 
-             c.account_id, 
-             c.phone as customer_phone, 
+             c.name as customer_name,
+             c.address as customer_address,
+             c.account_id,
+             c.phone as customer_phone,
              c.email as customer_email,
              c.tobacco_permit_number,
              u.name as user_name,
@@ -96,7 +96,22 @@ class Order {
         FROM order_items oi
         JOIN items i ON oi.item_id = i.id
         WHERE oi.order_id = o.id
-      ), '[]'::json) as items
+      ), '[]'::json) as items,
+      COALESCE((
+          SELECT json_agg(json_build_object(
+            'id', r.id,
+            'item_id', r.item_id,
+            'item_number', i.item_number,
+            'item_name', i.description_name,
+            'quantity', r.quantity,
+            'unit_price', r.unit_price,
+            'subtotal', (r.unit_price * r.quantity),
+            'amount', (r.unit_price * r.quantity)
+          ))
+          FROM returns r
+          JOIN items i ON r.item_id = i.id
+          WHERE r.order_id = o.id
+        ), '[]'::json) as returns
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
       LEFT JOIN users u ON o.user_id = u.id
@@ -123,7 +138,8 @@ class Order {
         FROM order_items oi
         JOIN items i ON oi.item_id = i.id
         WHERE oi.order_id = o.id
-      ), '[]'::json) as items
+      ), '[]'::json) as items,
+      COALESCE((SELECT SUM(r.unit_price * r.quantity) FROM returns r WHERE r.order_id = o.id), 0) as total_return
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
       LEFT JOIN users u ON o.user_id = u.id
