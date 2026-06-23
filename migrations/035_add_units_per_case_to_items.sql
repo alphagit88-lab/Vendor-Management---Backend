@@ -1,0 +1,1 @@
+ALTER TABLE items ADD COLUMN IF NOT EXISTS units_per_case NUMERIC;

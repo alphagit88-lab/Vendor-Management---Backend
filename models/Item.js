@@ -1,13 +1,13 @@
 const pool = require('../config/database');
 
 class Item {
-  static async create({ description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, admin_id }) {
+  static async create({ description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, admin_id, units_per_case }) {
     const query = `
-      INSERT INTO items (description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, admin_id, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      INSERT INTO items (description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, admin_id, units_per_case, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING *
     `;
-    const values = [description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id || null, admin_id || null];
+    const values = [description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id || null, admin_id || null, units_per_case || null];
     const result = await pool.query(query, values);
     return result.rows[0];
   }
@@ -34,12 +34,12 @@ class Item {
     return result.rows;
   }
 
-  static async update(id, { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id }) {
+  static async update(id, { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, units_per_case }) {
     const updates = [];
     const values = [];
     let paramCount = 1;
 
-    const fields = { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id };
+    const fields = { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, units_per_case };
 
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) {

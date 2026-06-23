@@ -19,7 +19,7 @@ exports.getItems = async (req, res) => {
 
 exports.createItem = async (req, res) => {
   try {
-    const { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, group_prices } = req.body;
+    const { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, group_prices, units_per_case } = req.body;
     
     if (!description_name || !price) {
       return res.status(400).json({ success: false, message: 'Description name and price are required' });
@@ -61,7 +61,8 @@ exports.createItem = async (req, res) => {
       quantity_size,
       vendor_cost: vendor_cost || 0,
       category_id: category_id || null,
-      admin_id: adminId
+      admin_id: adminId,
+      units_per_case: units_per_case || null
     });
 
     // Seed inventory with 0 for the first/default warehouse
@@ -108,7 +109,7 @@ exports.updateItem = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id } = req.body;
+    const { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, units_per_case } = req.body;
 
     if (category_id) {
       const category = await Category.findById(category_id);
@@ -120,7 +121,7 @@ exports.updateItem = async (req, res) => {
       }
     }
 
-    const updatedItem = await Item.update(id, { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id });
+    const updatedItem = await Item.update(id, { description_name, price, description, item_number, upc, cost, quantity_size, vendor_cost, category_id, units_per_case });
     res.json({ success: true, data: updatedItem });
   } catch (error) {
     console.error(error);

@@ -89,8 +89,10 @@ class Order {
           'item_number', i.item_number,
           'item_name', i.description_name,
           'upc', i.upc,
+          'quantity_size', i.quantity_size,
           'quantity', oi.quantity,
           'unit_price', oi.unit_price,
+          'srp', i.price,
           'subtotal', oi.subtotal
         ))
         FROM order_items oi
@@ -103,6 +105,7 @@ class Order {
             'item_id', r.item_id,
             'item_number', i.item_number,
             'item_name', i.description_name,
+            'quantity_size', i.quantity_size,
             'quantity', r.quantity,
             'unit_price', r.unit_price,
             'subtotal', (r.unit_price * r.quantity),
@@ -131,8 +134,10 @@ class Order {
           'item_number', i.item_number,
           'item_name', i.description_name,
           'upc', i.upc,
+          'quantity_size', i.quantity_size,
           'quantity', oi.quantity,
           'unit_price', oi.unit_price,
+          'srp', i.price,
           'subtotal', oi.subtotal
         ))
         FROM order_items oi
