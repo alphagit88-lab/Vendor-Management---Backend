@@ -9,7 +9,7 @@ router.post('/', authenticate, orderController.createOrder);
 router.post('/:id/checklist', authenticate, orderController.getOrderChecklist);
 router.put('/:id/status', authenticate, verifyAdmin, orderController.updateStatus);
 router.get('/:id/txt', authenticate, orderController.getOrderTXT);
-router.delete('/:id', authenticate, verifyAdmin, orderController.deleteOrder);
+router.delete('/:id', authenticate, orderController.deleteOrder);
 
 router.get('/:id/pdf', authenticate, orderController.getOrderPDF);
 module.exports = router;

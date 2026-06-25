@@ -91,8 +91,8 @@ exports.createOrder = async (req, res) => {
     total_amount = total_amount - parsedReturnAmount;
 
 // Returns will be processed after order creation to attach order_id
-
-    const newOrder = await Order.create({
+    let newOrder;
+    const orderPayload = {
       order_number,
       customer_id: customer_id || customerId,
       user_id: user_id || req.user.id,
@@ -108,7 +108,13 @@ exports.createOrder = async (req, res) => {
       client_timestamp: clientTimestamp || client_timestamp,
       is_upc_required: isUpcRequired || is_upc_required || false,
       items
-    });
+    };
+
+    if (req.body.orderId) {
+      newOrder = await Order.update(req.body.orderId, orderPayload);
+    } else {
+      newOrder = await Order.create(orderPayload);
+    }
 
     // --- Generate Bill PDF ---
     let billUrl = null;
@@ -181,7 +187,7 @@ let enhancedReturns = [];
       const customerEmail = fullOrder.customer_email;
       if (customerEmail) {
         const ediContent = generateEdiText(fullOrder);
-        const ediFileName = `invoice_${order_number}.txt`;
+        const ediFileName = `invoice_${newOrder.order_number}.txt`;
         const orderDate = clientTimestamp || client_timestamp
           ? new Date(clientTimestamp || client_timestamp).toLocaleString()
           : new Date(fullOrder.created_at).toLocaleString();
@@ -189,7 +195,7 @@ let enhancedReturns = [];
         sendInvoiceEdiEmail({
           toEmail: customerEmail,
           customerName: fullOrder.customer_name,
-          orderNumber: order_number,
+          orderNumber: newOrder.order_number,
           orderDate,
           salespersonName: fullOrder.user_name,
           paymentType: payment_type || 'N/A',
@@ -225,7 +231,7 @@ let enhancedReturns = [];
         data: newOrder,
         bill: billUrl ? {
           url: billUrl,
-          file_name: `bill_${order_number}.pdf`
+          file_name: `bill_${newOrder.order_number}.pdf`
         } : null,
         bill_generation_error: billUrl ? null : 'Failed to generate receipt'
       });
@@ -403,3 +409,4 @@ exports.getOrderPDF = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 }
+
